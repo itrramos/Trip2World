@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Trip2World">
+  <defs>
+    <linearGradient id="t2w" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="55%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#0a0f1c"/>
+
+  <!-- Globe: meridians and parallels, suggesting worldwide reach without needing
+       a detailed and inevitably politically-loaded coastline. -->
+  <g fill="none" stroke="url(#t2w)" stroke-width="18" stroke-linecap="round">
+    <circle cx="256" cy="256" r="132"/>
+    <ellipse cx="256" cy="256" rx="60" ry="132"/>
+    <path d="M124 256h264"/>
+    <path d="M148 190c64 34 152 34 216 0"/>
+    <path d="M148 322c64-34 152-34 216 0"/>
+  </g>
+</svg>
