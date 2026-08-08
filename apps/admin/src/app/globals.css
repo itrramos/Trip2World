@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Trip2World design tokens.
+ *
+ * Dark-first: the product is a video chat, and a bright UI around a video frame both
+ * distracts from the person on screen and washes out their image. Light theme is
+ * supported but is the secondary target.
+ *
+ * Colours are declared as raw HSL channel triplets rather than finished colours so
+ * Tailwind can compose them with an alpha value (`bg-surface/60`). A hex value cannot be
+ * used that way.
+ */
+
+@layer base {
+  :root {
+    /* Deep navy base, not pure black — pure black against a lit video frame produces
+       an uncomfortable halo on OLED panels. */
+    --background: 222 47% 6%;
+    --surface: 222 40% 10%;
+    --surface-raised: 222 36% 14%;
+    --border: 222 30% 20%;
+
+    --foreground: 210 40% 96%;
+    --muted: 215 20% 65%;
+
+    /* World-inspired accents: electric cyan through violet. */
+    --brand: 190 95% 55%;
+    --brand-strong: 195 100% 45%;
+    --accent: 265 85% 65%;
+
+    --success: 152 60% 45%;
+    --warning: 38 92% 55%;
+    --danger: 0 72% 55%;
+
+    --radius: 1rem;
+    --radius-sm: 0.625rem;
+    --radius-lg: 1.5rem;
+
+    /* Motion. Kept short: this is a real-time product and sluggish transitions make it
+       feel laggy even when the network is fine. */
+    --motion-fast: 120ms;
+    --motion-base: 200ms;
+    --motion-slow: 320ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :root[data-theme='light'] {
+    --background: 210 40% 98%;
+    --surface: 0 0% 100%;
+    --surface-raised: 210 40% 96%;
+    --border: 214 32% 88%;
+
+    --foreground: 222 47% 11%;
+    --muted: 215 16% 45%;
+
+    --brand: 195 100% 38%;
+    --brand-strong: 200 100% 32%;
+    --accent: 265 70% 52%;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme='dark']) {
+      --background: 210 40% 98%;
+      --surface: 0 0% 100%;
+      --surface-raised: 210 40% 96%;
+      --border: 214 32% 88%;
+      --foreground: 222 47% 11%;
+      --muted: 215 16% 45%;
+      --brand: 195 100% 38%;
+      --brand-strong: 200 100% 32%;
+      --accent: 265 70% 52%;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible focus for keyboard users, suppressed for pointer users. Removing the
+     outline entirely would make the app unusable without a mouse. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-background;
+  }
+
+  /* Respect a reduced-motion preference. Vestibular disorders are common enough that
+     decorative motion must be opt-out. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Frosted panel used for cards and overlays on top of video. */
+  .glass {
+    @apply border border-white/10 bg-surface/70 backdrop-blur-xl;
+  }
+
+  /* Brand gradient text, used sparingly — once per view at most. */
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand via-brand-strong to-accent bg-clip-text text-transparent;
+  }
+
+  .glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--brand) / 0.2),
+      0 8px 40px -8px hsl(var(--brand) / 0.35);
+  }
+}
+
+@layer utilities {
+  /* Full-bleed video that fills its container without letterboxing. Mirroring the
+     local preview is applied separately — a self-view that is not mirrored feels
+     wrong to almost everyone, because it is not what a mirror shows. */
+  .video-cover {
+    @apply h-full w-full object-cover;
+  }
+
+  .mirror {
+    transform: scaleX(-1);
+  }
+}
