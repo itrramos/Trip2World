@@ -18,7 +18,7 @@ import { authRoutes } from './routes/auth.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { iceRoutes } from './routes/ice.routes.js';
 import { AuthService } from './services/auth.service.js';
-import { MailService } from './services/mail.service.js';
+import { createMailService, type MailService } from './services/mail.service.js';
 import { SettingsService } from './services/settings.service.js';
 
 declare module 'fastify' {
@@ -75,7 +75,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   app.decorate('redis', redis);
 
   const settings = new SettingsService({ prisma, redis, config });
-  const mail = new MailService({ config, logger });
+  const mail = createMailService(config, logger);
   const auth = new AuthService({ prisma, config, logger });
 
   app.decorate('services', { auth, mail, settings });

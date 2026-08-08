@@ -20,7 +20,16 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { ensureAccessToken } from '@/lib/api';
-import { MediaError, requestUserMedia, stopStream } from '@/lib/media';
+import {
+  applyZoom,
+  getOppositeCameraTrack,
+  getZoomCapability,
+  hasMultipleCameras,
+  MediaError,
+  requestUserMedia,
+  stopStream,
+  type ZoomCapability,
+} from '@/lib/media';
 
 type RealtimeSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -81,6 +90,11 @@ export function useConversation() {
   const [queueConfirmed, setQueueConfirmed] = useState(false);
   const [searchingNow, setSearchingNow] = useState<number | null>(null);
   const [connected, setConnected] = useState(false);
+
+  /** Camera controls. Both are absent on most desktops, so the UI hides rather than disables. */
+  const [zoom, setZoomState] = useState<ZoomCapability | null>(null);
+  const [canSwitchCamera, setCanSwitchCamera] = useState(false);
+  const [switchingCamera, setSwitchingCamera] = useState(false);
 
   const socketRef = useRef<RealtimeSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
@@ -331,6 +345,12 @@ export function useConversation() {
       localStreamRef.current = stream;
       setCameraEnabled(stream.getVideoTracks().some((t) => t.enabled));
       setMicrophoneEnabled(stream.getAudioTracks().some((t) => t.enabled));
+
+      // Capabilities are only readable once a track is live, so this cannot be probed
+      // before permission is granted.
+      setZoomState(getZoomCapability(stream.getVideoTracks()[0] ?? null));
+      setCanSwitchCamera(await hasMultipleCameras().catch(() => false));
+
       transitionTo(SessionState.READY);
       return true;
     } catch (caught) {
@@ -409,6 +429,66 @@ export function useConversation() {
     tracks.forEach((track) => (track.enabled = next));
     setMicrophoneEnabled(next);
   }, []);
+
+  /** Set the camera zoom level. Optimistic: the slider must not lag the gesture. */
+  const setZoom = useCallback(
+    (value: number) => {
+      const track = localStreamRef.current?.getVideoTracks()[0] ?? null;
+      if (!track) return;
+      setZoomState((previous) => (previous ? { ...previous, current: value } : previous));
+      void applyZoom(track, value);
+    },
+    [],
+  );
+
+  /**
+   * Switch between front and back cameras.
+   *
+   * The important part is `replaceTrack`. Removing the old track and adding a new one
+   * would trigger renegotiation — a fresh offer/answer round trip during which the remote
+   * peer's view of you goes black. `replaceTrack` swaps the source on the existing sender
+   * with no signaling at all, so the other person sees an uninterrupted picture.
+   *
+   * The old track is stopped only after the swap succeeds. Stopping first would leave the
+   * user with a dead camera if the new one fails to open — which happens routinely when
+   * another app holds it.
+   */
+  const switchCamera = useCallback(async () => {
+    const stream = localStreamRef.current;
+    if (!stream || switchingCamera) return;
+
+    const oldTrack = stream.getVideoTracks()[0] ?? null;
+    setSwitchingCamera(true);
+
+    try {
+      const newTrack = await getOppositeCameraTrack(oldTrack);
+
+      // Carry the mute state across, or an off camera silently turns itself back on.
+      newTrack.enabled = oldTrack?.enabled ?? true;
+
+      const sender = peerRef.current?.getSenders().find((s) => s.track?.kind === 'video');
+      if (sender) await sender.replaceTrack(newTrack);
+
+      if (oldTrack) {
+        stream.removeTrack(oldTrack);
+        oldTrack.stop();
+      }
+      stream.addTrack(newTrack);
+
+      // Zoom range differs per camera — a wide-angle lens has a different ceiling.
+      setZoomState(getZoomCapability(newTrack));
+    } catch {
+      // Keep the existing camera. Surfacing a modal here would be disproportionate for a
+      // control the user can simply press again.
+      setError({
+        title: 'Could not switch camera',
+        body: 'The other camera is unavailable right now. It may be in use by another app.',
+        retry: false,
+      });
+    } finally {
+      setSwitchingCamera(false);
+    }
+  }, [switchingCamera]);
 
   const sendMessage = useCallback((body: string) => {
     const currentMatch = matchIdRef.current;
@@ -703,6 +783,9 @@ export function useConversation() {
     queueConfirmed,
     searchingNow,
     connected,
+    zoom,
+    canSwitchCamera,
+    switchingCamera,
 
     localStream: localStreamRef,
     remoteStream: remoteStreamRef,
@@ -714,6 +797,8 @@ export function useConversation() {
     endConversation,
     toggleCamera,
     toggleMicrophone,
+    setZoom,
+    switchCamera,
     sendMessage,
     reportPartner,
     blockPartner,

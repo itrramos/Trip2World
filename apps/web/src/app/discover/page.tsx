@@ -14,6 +14,9 @@ import {
   SkipForward,
   Signal,
   Sparkles,
+  SwitchCamera,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -308,6 +311,28 @@ export default function DiscoverPage() {
 
       {/* ── Controls ─────────────────────────────────────────────────── */}
       <div className="relative z-10 border-t border-white/10 bg-black/80 px-4 py-4 backdrop-blur">
+        {/*
+          Zoom slider, shown only where the camera actually reports a zoom range —
+          Chrome on Android for most cameras, essentially nowhere on desktop. Rendering a
+          slider that silently does nothing is worse than not offering one.
+        */}
+        {conversation.zoom && (
+          <div className="mx-auto mb-3 flex max-w-sm items-center gap-3 px-2">
+            <ZoomOut className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+            <input
+              type="range"
+              min={conversation.zoom.min}
+              max={conversation.zoom.max}
+              step={conversation.zoom.step}
+              value={conversation.zoom.current}
+              onChange={(event) => conversation.setZoom(Number(event.target.value))}
+              aria-label="Camera zoom"
+              className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-brand"
+            />
+            <ZoomIn className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+          </div>
+        )}
+
         <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 sm:gap-3">
           <ControlButton
             label={microphoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
@@ -326,6 +351,18 @@ export default function DiscoverPage() {
           >
             {cameraEnabled ? <Camera className="h-5 w-5" /> : <CameraOff className="h-5 w-5" />}
           </ControlButton>
+
+          {/* Only rendered when a second camera exists — a disabled button on a laptop
+              with one webcam is noise. */}
+          {conversation.canSwitchCamera && (
+            <ControlButton
+              label="Switch camera"
+              onClick={() => void conversation.switchCamera()}
+              disabled={!conversation.localStream.current || conversation.switchingCamera}
+            >
+              <SwitchCamera className="h-5 w-5" />
+            </ControlButton>
+          )}
 
           {/* Next is the primary action and is deliberately the largest, most reachable
               control — it is the one people press most, and often in a hurry. */}

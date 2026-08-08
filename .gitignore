@@ -50,3 +50,6 @@ apps/mobile/web-build/
 backups/
 data/
 uploads/
+
+# Debris from a Windows standalone build with a bad outputFileTracingRoot.
+/Users/
