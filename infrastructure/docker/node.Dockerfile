@@ -19,9 +19,16 @@ FROM node:22.13-alpine AS base
 # tini: proper signal forwarding and zombie reaping.
 RUN apk add --no-cache openssl libc6-compat tini
 
+# pnpm is installed with npm rather than corepack.
+#
+# The corepack bundled in Node 22 images carries npm's old registry signing keys. npm has
+# since rotated them, so any corepack version lookup fails with
+# "Cannot find matching keyid" — including the one its shim performs at RUNTIME, which
+# kills the container before the actual command runs. Installing pnpm directly removes
+# corepack from the critical path entirely and pins the version just as firmly.
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN npm install -g pnpm@9.15.4 && pnpm --version
 
 WORKDIR /app
 

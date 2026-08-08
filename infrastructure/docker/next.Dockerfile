@@ -10,9 +10,12 @@ FROM node:22.13-alpine AS base
 
 RUN apk add --no-cache libc6-compat tini
 
+# Installed with npm, not corepack — see the note in node.Dockerfile. The corepack
+# shipped in Node 22 images fails signature verification against npm's rotated registry
+# keys, and it does so at runtime as well as at build time.
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN npm install -g pnpm@9.15.4 && pnpm --version
 
 WORKDIR /app
 
