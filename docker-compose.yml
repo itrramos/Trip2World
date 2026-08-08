@@ -164,6 +164,11 @@ services:
       dockerfile: infrastructure/docker/node.Dockerfile
       args:
         APP: api
+    # Tagged explicitly so the `migrate` service can reuse this exact image instead of
+    # building its own copy from the same Dockerfile. Two build blocks producing what is
+    # meant to be the same image is how they silently drift — rebuild one, forget the
+    # other, and migrations run against different code than the API serves.
+    image: trip2world/api:latest
     <<: [*restart, *logging]
     environment:
       <<: *backend-env
@@ -190,6 +195,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     networks: [internal]
     healthcheck:
       test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:4000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
@@ -213,6 +219,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     networks: [internal]
     healthcheck:
       test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:4001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
@@ -240,16 +247,20 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     networks: [internal]
 
-  # Runs `prisma migrate deploy` once, then exits. Everything that touches the
-  # database waits for it, so an upgrade cannot start serving against an old schema.
+  # Runs `prisma migrate deploy` once, then exits.
+  #
+  # api, realtime and worker all wait for this to exit SUCCESSFULLY before they start,
+  # so a release can never begin serving against a schema it was not built for — and a
+  # failed migration halts the deploy instead of producing a half-working stack.
   migrate:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/node.Dockerfile
-      args:
-        APP: api
+    # Reuses the api image rather than building a second identical one from the same
+    # Dockerfile. Two build blocks for what is meant to be the same image is exactly how
+    # they drift: rebuild one, forget the other, and migrations run against different
+    # code than the API serves. `docker compose build api` now updates both.
+    image: trip2world/api:latest
     restart: 'no'
     command: ['pnpm', '--filter', '@trip2world/database', 'migrate:deploy']
     environment:
