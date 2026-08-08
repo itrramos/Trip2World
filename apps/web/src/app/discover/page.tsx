@@ -45,6 +45,8 @@ export default function DiscoverPage() {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  /** Same remote stream, rendered blurred behind the letterboxed video. */
+  const backdropVideoRef = useRef<HTMLVideoElement>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
 
@@ -61,6 +63,9 @@ export default function DiscoverPage() {
     }
     if (remoteVideoRef.current && conversation.remoteStream.current) {
       remoteVideoRef.current.srcObject = conversation.remoteStream.current;
+    }
+    if (backdropVideoRef.current && conversation.remoteStream.current) {
+      backdropVideoRef.current.srcObject = conversation.remoteStream.current;
     }
   }, [state, conversation.localStream, conversation.remoteStream]);
 
@@ -103,13 +108,35 @@ export default function DiscoverPage() {
       {/* ── Remote video / stage ─────────────────────────────────────── */}
       <div className="relative flex-1 overflow-hidden">
         {inCall && (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            // Never muted: this is the other person's audio, the entire point.
-            className="video-cover absolute inset-0"
-          />
+          <>
+            {/*
+              Blurred backdrop.
+
+              A phone films in portrait (9:16); a desktop frame is landscape. Filling that
+              frame with `object-cover` crops away most of the picture — which is why the
+              remote person appeared as a giant face. `object-contain` shows the whole
+              frame instead, and this scaled, blurred copy of the same stream fills the
+              leftover space so the result reads as intentional rather than as black bars.
+
+              The same MediaStream can drive several <video> elements, so this costs no
+              extra bandwidth and no second decode of a different stream.
+            */}
+            <video
+              ref={backdropVideoRef}
+              autoPlay
+              playsInline
+              muted
+              aria-hidden
+              className="absolute inset-0 h-full w-full scale-110 object-cover blur-2xl brightness-50"
+            />
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              // Never muted: this is the other person's audio, the entire point.
+              className="absolute inset-0 h-full w-full object-contain"
+            />
+          </>
         )}
 
         {/* Idle / ready */}

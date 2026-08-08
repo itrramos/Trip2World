@@ -1,0 +1,5 @@
+﻿{
+  "extends": "@trip2world/config/tsconfig/nextjs.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules"]
+}

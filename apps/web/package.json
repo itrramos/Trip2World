@@ -15,6 +15,7 @@
     "@tanstack/react-query": "^5.64.1",
     "@trip2world/shared": "workspace:*",
     "@trip2world/types": "workspace:*",
+    "@trip2world/ui": "workspace:*",
     "@trip2world/validation": "workspace:*",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.0",
