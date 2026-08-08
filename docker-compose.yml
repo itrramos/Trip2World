@@ -1,10 +1,13 @@
 # Trip2World — production stack
 #
-#   docker compose up -d                          # direct / proxied modes
-#   docker compose --profile tunnel up -d         # Cloudflare Tunnel mode
+#   docker compose up -d
 #
-# Portainer: Stacks -> Add stack -> Repository, then upload .env as the stack's
-# environment file. See docs/DEPLOYMENT.md.
+# Ingress is an EXTERNAL Cloudflare Tunnel, managed outside this stack, mapping:
+#   http://<host>:8181  ->  https://call.trip2fun.com
+#   http://<host>:8182  ->  https://admin.trip2fun.com
+#
+# Portainer: Stacks -> Add stack -> Repository, then paste .env into the stack's
+# environment variables. See docs/DEPLOYMENT.md.
 #
 # Only the reverse proxy and coturn are published to the host. Postgres, Redis and
 # every application container stay on the internal network and are unreachable from
@@ -56,15 +59,20 @@ services:
   caddy:
     image: caddy:2.8-alpine
     <<: [*restart, *logging]
-    # The ONLY published HTTP port. Everything reaches Trip2World through here.
+    # The only published HTTP ports. Your external Cloudflare Tunnel maps:
+    #   <host>:8181 -> https://call.trip2fun.com
+    #   <host>:8182 -> https://admin.trip2fun.com
+    #
+    # BIND_ADDRESS controls who can reach these. 127.0.0.1 is strongly preferred: it
+    # makes the tunnel the ONLY way in, so nobody can bypass Cloudflare (and any Access
+    # policy on the admin hostname) by hitting the VPS IP directly. Use 0.0.0.0 only if
+    # cloudflared cannot reach the loopback interface — see docs/DEPLOYMENT.md.
     ports:
-      - '${PUBLIC_PORT:-8181}:8181'
+      - '${BIND_ADDRESS:-127.0.0.1}:${PUBLIC_PORT:-8181}:8181'
+      - '${BIND_ADDRESS:-127.0.0.1}:${ADMIN_PORT:-8182}:8182'
     environment:
       APP_DOMAIN: ${APP_DOMAIN}
       ADMIN_DOMAIN: ${ADMIN_DOMAIN}
-      DEPLOY_MODE: ${DEPLOY_MODE:-tunnel}
-      ACME_EMAIL: ${ACME_EMAIL:-}
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
     volumes:
       - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -90,22 +98,12 @@ services:
       retries: 3
       start_period: 20s
 
-  # Cloudflare Tunnel. Enabled with `--profile tunnel`.
+  # NOTE: there is deliberately no cloudflared service here.
   #
-  # This is the mode that makes port 8181 work with Cloudflare at all: the tunnel
-  # dials OUT to Cloudflare, so the origin port is never negotiated and the
-  # restricted origin-port list does not apply. It also needs no inbound firewall
-  # rule and no port forward, which suits a ZimaOS box behind CGNAT.
-  #
-  # Point the tunnel's public hostname at:  http://caddy:8181
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    <<: [*restart, *logging]
-    profiles: [tunnel]
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      caddy: { condition: service_started }
-    networks: [edge]
+  # Ingress is an EXTERNAL Cloudflare Tunnel managed outside this stack, pointing at
+  # the two host ports above. Bundling a second tunnel would mean two things competing
+  # to publish the same hostnames, and the stack would own a credential it does not
+  # need. See docs/DEPLOYMENT.md.
 
   # ───────────────────────────────────────────────────────────────────────────
   # Applications

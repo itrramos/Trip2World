@@ -1,23 +1,32 @@
 # Trip2World reverse proxy.
 #
-# Two origins, one port (8181):
+# Ingress model: an EXTERNAL Cloudflare Tunnel (managed outside this stack) maps two host
+# ports to two public hostnames:
 #
-#   call.trip2fun.com/          -> web      (Next.js)
-#   call.trip2fun.com/api/*     -> api      (Fastify)
-#   call.trip2fun.com/rt        -> realtime (Socket.IO, WebSocket)
+#   http://<host>:8181  ->  https://call.trip2fun.com     public app
+#   http://<host>:8182  ->  https://admin.trip2fun.com    admin panel
 #
-#   admin.trip2fun.com/         -> admin    (Next.js)
-#   admin.trip2fun.com/api/*    -> api      (the SAME container)
+# Routing is therefore by PORT, not by Host header. That is deliberate: whatever Host the
+# tunnel forwards, the port it connected to is unambiguous, so the admin panel can never
+# be reached by spoofing a Host header at the public port.
 #
-# Why /api is served under both hostnames: putting the admin panel on its own
-# origin only isolates its session if the admin UI can authenticate WITHOUT a
-# cross-origin request. Serving the API under each hostname lets both panels call
-# /api same-origin, so each cookie is host-scoped (no Domain=.trip2fun.com) and an
-# XSS in the public web bundle cannot attach a moderator's cookie to a request.
+# Port 8181 (public app):
+#   /            -> web       (Next.js)
+#   /api/*       -> api       (Fastify)
+#   /rt          -> realtime  (Socket.IO / WebSocket)
 #
-# The `http://` scheme with an explicit port keeps Caddy from trying to provision
-# its own certificate: in tunnel and proxied modes Cloudflare terminates TLS and
-# Caddy only ever speaks plain HTTP on the internal network.
+# Port 8182 (admin):
+#   /            -> admin     (Next.js)
+#   /api/*       -> api       (the SAME container)
+#
+# Why /api is served on BOTH ports: putting the admin panel on its own origin only
+# isolates its session if the admin UI can authenticate WITHOUT a cross-origin request.
+# Serving the API on each port lets both panels call /api same-origin, so each cookie is
+# host-scoped (no Domain=.trip2fun.com) and an XSS in the public web bundle cannot attach
+# a moderator's cookie to a request.
+#
+# TLS is terminated by Cloudflare. Caddy speaks plain HTTP and must never be exposed
+# directly to the internet — see BIND_ADDRESS in .env.
 
 {
 	# Caddy's admin API is unauthenticated by design and would be a full remote
@@ -25,8 +34,9 @@
 	admin off
 
 	servers {
-		# Honour X-Forwarded-For from Cloudflare / cloudflared, so rate limiting and
-		# audit logs key on the real client rather than on the proxy's address.
+		# Honour X-Forwarded-For / X-Forwarded-Proto from cloudflared so rate limiting,
+		# audit logs and secure-cookie handling see the real client and scheme rather
+		# than the tunnel's.
 		trusted_proxies static private_ranges
 	}
 }
@@ -40,8 +50,8 @@
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 
-		# getUserMedia is required for the product to work; everything else is
-		# denied. Also stops an embedded third-party frame requesting the camera.
+		# getUserMedia is required for the product to work; everything else is denied.
+		# Also stops an embedded third-party frame from requesting the camera.
 		Permissions-Policy "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()"
 
 		# Drop the version banner Caddy adds by default.
@@ -53,7 +63,7 @@
 	header_up Host {host}
 	header_up X-Real-IP {remote_host}
 	header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
-	header_up X-Forwarded-Proto {scheme}
+	header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
 }
 
 (app_log) {
@@ -65,14 +75,19 @@
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Public application
+# :8181 — public application
 # ─────────────────────────────────────────────────────────────────────────────
-http://{$APP_DOMAIN}:8181 {
+:8181 {
 	import app_log
 	import security_headers
 
-	# Realtime must be matched before the catch-all. Socket.IO opens with an HTTP
-	# long-poll and then upgrades, so both have to reach the same backend.
+	# Liveness for the container healthcheck and for uptime monitoring.
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# Realtime must match before the catch-all. Socket.IO opens with an HTTP long-poll
+	# and then upgrades, so both have to reach the same backend.
 	handle /rt* {
 		reverse_proxy realtime:4001 {
 			import proxy_headers
@@ -106,11 +121,15 @@ http://{$APP_DOMAIN}:8181 {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Admin panel — separate origin, separate cookie jar
+# :8182 — admin panel (separate port, separate origin, separate cookie jar)
 # ─────────────────────────────────────────────────────────────────────────────
-http://{$ADMIN_DOMAIN}:8181 {
+:8182 {
 	import app_log
 	import security_headers
+
+	handle /healthz {
+		respond "ok" 200
+	}
 
 	# The admin panel is never a legitimate target for indexing or embedding.
 	header {
@@ -136,37 +155,3 @@ http://{$ADMIN_DOMAIN}:8181 {
 		respond "Trip2World admin is temporarily unavailable ({err.status_code})." {err.status_code}
 	}
 }
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Fallback — container healthcheck and any request arriving without a known Host.
-# Deliberately serves no application content.
-# ─────────────────────────────────────────────────────────────────────────────
-:8181 {
-	handle /healthz {
-		respond "ok" 200
-	}
-
-	handle {
-		respond "Not found" 404
-	}
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# DEPLOY_MODE=direct
-# ─────────────────────────────────────────────────────────────────────────────
-# With DNS-only (grey cloud) records, Caddy obtains its own certificates. The
-# HTTP-01 challenge cannot work on a non-standard port, so the DNS-01 challenge is
-# required — which needs a Cloudflare API token with Zone:DNS:Edit and the
-# caddy-dns/cloudflare plugin compiled into the image.
-#
-# Replace the two `http://…:8181` blocks with:
-#
-#   {$APP_DOMAIN}, {$ADMIN_DOMAIN} {
-#       tls {$ACME_EMAIL} {
-#           dns cloudflare {$CLOUDFLARE_API_TOKEN}
-#       }
-#       @admin host {$ADMIN_DOMAIN}
-#       ... route by @admin ...
-#   }
-#
-# and publish 443:443 instead of 8181:8181 in docker-compose.yml.

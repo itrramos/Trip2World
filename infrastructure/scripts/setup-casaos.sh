@@ -87,16 +87,35 @@ fi
 # Only opened if ufw is already active — enabling a firewall on a remote VPS from a
 # script is an excellent way to lock yourself out of SSH.
 
+# Only TURN needs to be reachable from the internet.
+#
+# 8181/8182 are NOT opened. They are bound to 127.0.0.1 by default and reached only by
+# the local cloudflared, so exposing them would let anyone hit the app — and the admin
+# panel — by IP, bypassing Cloudflare and any Access policy on the admin hostname.
+#
+# TURN is different: it must be directly reachable. It is UDP, so Cloudflare's proxy
+# cannot carry it, and without it users behind symmetric NAT never connect.
+
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
-  info "ufw is active; opening the ports Trip2World needs"
-  ufw allow 8181/tcp            comment 'Trip2World app' >/dev/null
+  info "ufw is active; opening TURN ports only"
   ufw allow 3478/udp            comment 'Trip2World TURN' >/dev/null
   ufw allow 3478/tcp            comment 'Trip2World TURN' >/dev/null
   ufw allow 49160:49200/udp     comment 'Trip2World TURN relay' >/dev/null
-  ok "firewall rules added"
+  ok "firewall rules added (8181/8182 deliberately NOT exposed)"
 else
-  info "ufw not active - open these ports manually if you use another firewall:"
-  info "    8181/tcp, 3478/udp, 3478/tcp, 49160-49200/udp"
+  info "ufw not active - if you use another firewall, allow ONLY:"
+  info "    3478/udp, 3478/tcp, 49160-49200/udp"
+  info "  Do NOT expose 8181 or 8182: the tunnel should be the only way in."
+fi
+
+# If BIND_ADDRESS was set to 0.0.0.0, the ports ARE internet-facing and the note above
+# does not protect them. Say so plainly rather than letting it pass unnoticed.
+if [[ -f .env ]] && grep -qE '^BIND_ADDRESS=0\.0\.0\.0' .env; then
+  printf '\n  [!] BIND_ADDRESS=0.0.0.0 - ports %s and %s are reachable from the internet.\n' \
+    "$(grep -E '^PUBLIC_PORT=' .env | cut -d= -f2 || echo 8181)" \
+    "$(grep -E '^ADMIN_PORT=' .env | cut -d= -f2 || echo 8182)"
+  printf '      Anyone can reach the app AND the admin panel by IP, bypassing\n'
+  printf '      Cloudflare. Restrict them to the tunnel source, or use 127.0.0.1.\n'
 fi
 
 printf '\n  Done. Next:\n'
