@@ -92,6 +92,12 @@ export default function DiscoverPage() {
   const searching = state === SessionState.QUEUED || state === SessionState.MATCH_FOUND;
   const hintIndex = Math.min(Math.floor(waitingSeconds / 8), SEARCH_HINTS.length - 1);
 
+  /**
+   * The queue contains only us. Reported by the server, so it accounts for people
+   * connected to other realtime nodes rather than just this one.
+   */
+  const alone = conversation.queueConfirmed && conversation.searchingNow === 1;
+
   return (
     <main className="relative flex min-h-dvh flex-col bg-black">
       {/* ── Remote video / stage ─────────────────────────────────────── */}
@@ -158,7 +164,29 @@ export default function DiscoverPage() {
 
         {/* Searching */}
         {searching && (
-          <StageMessage title={SEARCH_HINTS[hintIndex]!} body={`Searching for ${formatDuration(waitingSeconds)}`}>
+          <StageMessage
+            title={
+              // Tell the truth about why nothing is happening. "Almost there…" while the
+              // queue holds exactly one person is a lie the user can feel, and it makes a
+              // genuinely empty room indistinguishable from a broken matchmaker.
+              alone
+                ? 'Nobody else is here right now'
+                : !conversation.queueConfirmed
+                  ? 'Connecting to Trip2World…'
+                  : SEARCH_HINTS[hintIndex]!
+            }
+            body={
+              alone
+                ? 'You are the only person searching. Stay here and we will pair you the moment someone joins.'
+                : !conversation.queueConfirmed
+                  ? 'Waiting for the server to confirm your place in the queue.'
+                  : `Searching for ${formatDuration(waitingSeconds)}${
+                      conversation.searchingNow !== null
+                        ? ` · ${conversation.searchingNow} searching`
+                        : ''
+                    }`
+            }
+          >
             <div className="relative flex h-24 w-24 items-center justify-center">
               <span className="absolute inset-0 rounded-full border border-brand/40 animate-pulse-ring" />
               <span

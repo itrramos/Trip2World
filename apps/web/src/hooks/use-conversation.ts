@@ -68,6 +68,20 @@ export function useConversation() {
   const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
   const [waitingSeconds, setWaitingSeconds] = useState(0);
 
+  /**
+   * Server-confirmed queue state.
+   *
+   * `queueConfirmed` distinguishes "the server has us in the queue" from "we optimistically
+   * rendered the searching screen". Without it, a socket that silently failed to deliver
+   * `queue:join` looks exactly like a slow match — the spinner runs forever with no error.
+   *
+   * `searchingNow` is how many people are waiting in total. When that is 1, the honest
+   * answer is "nobody else is here", not "still looking".
+   */
+  const [queueConfirmed, setQueueConfirmed] = useState(false);
+  const [searchingNow, setSearchingNow] = useState<number | null>(null);
+  const [connected, setConnected] = useState(false);
+
   const socketRef = useRef<RealtimeSocket | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -347,6 +361,8 @@ export function useConversation() {
 
   const leaveQueue = useCallback(() => {
     socketRef.current?.emit('queue:leave');
+    setQueueConfirmed(false);
+    setSearchingNow(null);
     transitionTo(SessionState.READY);
   }, [transitionTo]);
 
@@ -453,6 +469,8 @@ export function useConversation() {
       socketRef.current = socket;
 
       socket.on('connect_error', () => {
+        setConnected(false);
+        setQueueConfirmed(false);
         setError({
           title: 'Cannot reach Trip2World',
           body: 'We lost the connection to our servers. Retrying…',
@@ -460,7 +478,29 @@ export function useConversation() {
         });
       });
 
-      socket.on('connect', () => setError(null));
+      socket.on('connect', () => {
+        setConnected(true);
+        setError(null);
+      });
+
+      socket.on('disconnect', () => {
+        setConnected(false);
+        // A queue place does not survive a disconnect — the server drops the entry.
+        // Leaving `queueConfirmed` true would keep claiming we are queued when we are not.
+        setQueueConfirmed(false);
+      });
+
+      socket.on('queue:joined', () => setQueueConfirmed(true));
+
+      socket.on('queue:waiting', (payload) => {
+        setQueueConfirmed(true);
+        setSearchingNow(payload.searchingNow);
+      });
+
+      socket.on('queue:left', () => {
+        setQueueConfirmed(false);
+        setSearchingNow(null);
+      });
 
       socket.on('match:found', (payload) => void handleMatchFound(payload));
 
@@ -660,6 +700,9 @@ export function useConversation() {
     cameraEnabled,
     microphoneEnabled,
     waitingSeconds,
+    queueConfirmed,
+    searchingNow,
+    connected,
 
     localStream: localStreamRef,
     remoteStream: remoteStreamRef,

@@ -14,6 +14,7 @@ import {
   RATE_LIMITS,
   ageBracketFor,
   DEFAULT_PRIVACY_SETTINGS,
+  relaxationStageFor,
   toPublicProfile,
 } from '@trip2world/shared';
 import {
@@ -775,12 +776,39 @@ export function buildRealtimeServer(deps: RealtimeServerDeps): RealtimeServer {
     void (async () => {
       const sockets = await nsp.local.fetchSockets();
 
+      // Total waiting across every node, so the client can tell the difference between
+      // "still looking" and "nobody else is here". Without this the searching screen is
+      // indistinguishable from a broken matchmaker — which is exactly the confusion an
+      // empty queue produces.
+      const searchingNow = await queue.size().catch(() => 0);
+      const matchSettings = await settings();
+
       for (const socket of sockets) {
         const { userId } = socket.data as SocketData;
         try {
           if (!(await queue.isQueued(userId))) continue;
           if (await queue.currentMatch(userId)) continue;
-          await attemptMatch(userId);
+
+          const matched = await attemptMatch(userId);
+          if (matched) continue;
+
+          const entry = await queue.getEntry(userId);
+          if (!entry) continue;
+
+          const waitingSeconds = Math.floor((Date.now() - entry.queuedAt) / 1000);
+          const relaxationStage = relaxationStageFor(
+            entry,
+            Date.now(),
+            matchSettings.relaxationStages,
+          );
+
+          nsp.to(userRoom(userId)).emit('queue:waiting', {
+            position: await queue.position(userId, entry.country).catch(() => null),
+            waitingSeconds,
+            relaxationStage,
+            hint: null,
+            searchingNow,
+          });
         } catch (error) {
           logger.error({ err: error, userId }, 'Matchmaking tick failed for user');
         }
