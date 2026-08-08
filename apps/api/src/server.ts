@@ -13,6 +13,7 @@ import type { Logger } from './logger.js';
 import { authPlugin } from './plugins/auth.plugin.js';
 import { rateLimitPlugin } from './plugins/rate-limit.plugin.js';
 import type { RedisContext } from './redis.js';
+import { adminRoutes } from './routes/admin.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { iceRoutes } from './routes/ice.routes.js';
@@ -227,6 +228,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(iceRoutes, { prefix: '/api/v1/ice' });
+  await app.register(adminRoutes, { prefix: '/api/v1/admin' });
 
   return app;
 }
