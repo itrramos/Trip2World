@@ -23,12 +23,17 @@ Trip2World does **not** bundle a tunnel. Ingress is yours, managed outside this 
 
 ## 2. Ingress
 
-Your existing Cloudflare Tunnel maps two host ports to two public hostnames:
+Your existing Cloudflare Tunnel maps two host ports to two public hostnames. The service
+target depends on where `cloudflared` runs:
 
-| Public hostname | Tunnel service target |
-| --- | --- |
-| `call.trip2fun.com` | `http://localhost:8181` |
-| `admin.trip2fun.com` | `http://localhost:8182` |
+| Public hostname | cloudflared on this host | cloudflared elsewhere |
+| --- | --- | --- |
+| `call.trip2fun.com` | `http://localhost:8181` | `http://<vps-public-ip>:8181` |
+| `admin.trip2fun.com` | `http://localhost:8182` | `http://<vps-public-ip>:8182` |
+
+In the reference deployment cloudflared runs on a **different machine**, so the targets are
+the VPS public IP and `BIND_ADDRESS=0.0.0.0`. That combination means the ports are
+internet-facing — see the warning below.
 
 Cloudflare terminates TLS. Caddy speaks plain HTTP behind it and routes by **port**, not
 by `Host` header — so the admin panel cannot be reached by spoofing a `Host` header at
@@ -49,10 +54,26 @@ Cloudflare, and any Access policy on `admin.trip2fun.com`, cannot be bypassed. R
 cloudflared to run on the same host, which is the normal setup. Point the tunnel at
 `http://localhost:8181` and `http://localhost:8182`.
 
-**`0.0.0.0`.** Only if cloudflared runs elsewhere. The ports are then internet-facing
-unless a firewall blocks them: `http://<your-ip>:8182` would serve the admin login to
-anyone who scans for it. If you must use this, restrict 8181/8182 to the tunnel's source
-address at the firewall.
+**`0.0.0.0`.** Required when cloudflared runs elsewhere, which is the case in the
+reference deployment.
+
+The ports are then internet-facing. `http://<vps-ip>:8182` serves the **moderation panel
+login** to anyone who port-scans that address — bypassing Cloudflare and any Access policy
+on the hostname. This is not theoretical: 8181/8182 on a public VPS will be scanned within
+hours.
+
+Two mitigations, and you want both:
+
+```bash
+# 1. Only the tunnel host may reach these ports.
+sudo ufw delete allow 8182/tcp 2>/dev/null || true
+sudo ufw allow from <TUNNEL_HOST_IP> to any port 8181 proto tcp comment 'Trip2World app'
+sudo ufw allow from <TUNNEL_HOST_IP> to any port 8182 proto tcp comment 'Trip2World admin'
+```
+
+2. A **Cloudflare Access** policy in front of `admin.trip2fun.com` (Zero Trust →
+   Access → Applications). Free at this scale, and it puts an independent authentication
+   layer ahead of the panel so a stolen moderator password is not sufficient on its own.
 
 If cloudflared runs as a container on the same host, either attach it to this stack's
 `edge` network (then target `http://caddy:8181`) or give it `network_mode: host` and keep

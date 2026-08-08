@@ -239,6 +239,12 @@ model User {
 
   verificationTokens VerificationToken[]
 
+  tokenAccount   TokenAccount?
+  tokenLedger    TokenLedger[]   @relation("TokenLedgerOwner")
+  tokenPurchases TokenPurchase[]
+  tipsSent       Tip[]           @relation("TipSender")
+  tipsReceived   Tip[]           @relation("TipRecipient")
+
   @@index([status])
   @@index([createdAt])
   @@index([role])
@@ -693,6 +699,164 @@ model FeatureFlag {
   updatedAt DateTime @updatedAt
 
   @@map("feature_flags")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tokens and tipping                                                          */
+/* -------------------------------------------------------------------------- */
+
+enum TokenLedgerKind {
+  PURCHASE
+  TIP_SENT
+  TIP_RECEIVED
+  REFUND
+  /// Manual correction by an administrator. Always audit-logged.
+  ADJUSTMENT
+  /// Promotional grant.
+  PROMO
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+/// A user's spendable token balance.
+///
+/// `balance` is a cache of the sum of TokenLedger.delta, kept in the same transaction as
+/// every ledger write. It exists because reading a running total on every request would
+/// not scale; the ledger remains the source of truth and any dispute is settled by
+/// replaying it.
+model TokenAccount {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Never negative. Enforced by the conditional UPDATE used for every debit, which is
+  /// what makes concurrent spends safe — see TokensService.debit.
+  balance Int @default(0)
+
+  /// Lifetime totals, for display and for support enquiries. Derived from the ledger but
+  /// stored so a profile page does not have to aggregate it.
+  lifetimeEarned    Int @default(0)
+  lifetimePurchased Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("token_accounts")
+}
+
+/// Append-only record of every token movement.
+///
+/// Never updated, never deleted. A tip produces exactly two rows — a TIP_SENT debit and a
+/// TIP_RECEIVED credit — so the ledger always sums to the tokens that have been bought.
+model TokenLedger {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation("TokenLedgerOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Negative for debits, positive for credits.
+  delta        Int
+  kind         TokenLedgerKind
+  /// The account balance immediately after this row was written, so history can be
+  /// rendered without re-summing, and so a divergence between cache and ledger is visible.
+  balanceAfter Int
+
+  /// The other party, for tips.
+  counterpartyId String? @db.Uuid
+  matchId        String? @db.Uuid
+  purchaseId     String? @db.Uuid
+  tipId          String? @db.Uuid
+
+  note String? @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([kind])
+  @@map("token_ledger")
+}
+
+/// A purchasable bundle. Priced in minor units to avoid floating point entirely.
+model TokenPackage {
+  id        String  @id @default(uuid()) @db.Uuid
+  slug      String  @unique
+  tokens    Int
+  priceCents Int
+  currency  String  @default("EUR") @db.VarChar(3)
+  /// Marketing label, e.g. "Most popular".
+  label     String?
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases TokenPurchase[]
+
+  @@map("token_packages")
+}
+
+model TokenPurchase {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  packageId String       @db.Uuid
+  package   TokenPackage @relation(fields: [packageId], references: [id])
+
+  provider BillingProvider @default(STRIPE)
+  /// Provider-side identifier, e.g. the Stripe Checkout Session id.
+  providerRef String? @unique
+  /// The webhook event that fulfilled this purchase. Unique, because Stripe retries
+  /// delivery and crediting the same purchase twice is real money lost.
+  providerEventId String? @unique
+
+  tokens     Int
+  amountCents Int
+  currency   String         @db.VarChar(3)
+  status     PurchaseStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("token_purchases")
+}
+
+/// A tip sent from one user to another, optionally carrying an offer of extra call time.
+///
+/// `accepted` is deliberately nullable and deliberately separate from the transfer: the
+/// tokens move regardless of the answer. The recipient decides only whether the
+/// conversation continues, and Next/report/block are never affected by any of this.
+model Tip {
+  id      String  @id @default(uuid()) @db.Uuid
+  matchId String? @db.Uuid
+
+  fromUserId String @db.Uuid
+  toUserId   String @db.Uuid
+  fromUser   User   @relation("TipSender", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User   @relation("TipRecipient", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  tokens  Int
+  message String? @db.VarChar(200)
+
+  /// Extra seconds offered alongside the tip. Null means the tip carried no offer.
+  offeredSeconds Int?
+  /// Null while pending, true/false once the recipient answers or the call ends.
+  accepted    Boolean?
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([toUserId, createdAt])
+  @@index([fromUserId, createdAt])
+  @@index([matchId])
+  @@map("tips")
 }
 
 /// Operator-tunable runtime configuration, edited from the admin panel.
