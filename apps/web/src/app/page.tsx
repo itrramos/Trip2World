@@ -1,4 +1,4 @@
-import { APP_NAME, COUNTRIES, countryFlagEmoji, INTEREST_CATALOGUE } from '@trip2world/shared';
+import { APP_NAME, COUNTRIES, INTEREST_CATALOGUE } from '@trip2world/shared';
 import {
   ArrowRight,
   Ban,
@@ -87,8 +87,8 @@ const FAQ = [
 ];
 
 export default function LandingPage() {
-  // Country strip: real data from the supported-country list, not decoration.
-  const flagStrip = COUNTRIES.slice(0, 28);
+  // Real data from the supported-country list, not invented decoration.
+  const countryStrip = COUNTRIES.slice(0, 24);
 
   return (
     <div className="relative overflow-hidden">
@@ -164,18 +164,34 @@ export default function LandingPage() {
         </section>
 
         {/* ── Country strip ──────────────────────────────────────────────── */}
+        {/*
+          Country NAMES, not flag emoji. Windows has no flag glyphs, so a row of flags
+          renders there as bare letter pairs ("AR AT AU BE") — which looks like a broken
+          font rather than a design. Names read correctly on every platform, and are
+          more informative anyway.
+        */}
         <section aria-label="Countries you can meet people from" className="pb-24">
-          <div className="relative mx-auto max-w-6xl px-6">
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-2xl">
-              {flagStrip.map((country) => (
-                <span key={country.code} title={country.name} className="opacity-70">
-                  <span aria-hidden>{countryFlagEmoji(country.code)}</span>
-                  <span className="sr-only">{country.name}</span>
+          <div className="relative mx-auto max-w-5xl px-6">
+            <div
+              className="flex flex-wrap items-center justify-center gap-2"
+              // Fade the edges so the list reads as a sample rather than a truncated set.
+              style={{
+                maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+              }}
+            >
+              {countryStrip.map((country) => (
+                <span
+                  key={country.code}
+                  className="rounded-full border border-border/70 bg-surface/40 px-3.5 py-1.5 text-sm text-muted backdrop-blur"
+                >
+                  {country.name}
                 </span>
               ))}
             </div>
-            <p className="mt-5 text-center text-sm text-muted">
-              {COUNTRIES.length} countries supported at launch
+            <p className="mt-6 text-center text-sm text-muted">
+              <span className="font-medium text-foreground">{COUNTRIES.length} countries</span>{' '}
+              supported at launch
             </p>
           </div>
         </section>

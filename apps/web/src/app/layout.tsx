@@ -2,6 +2,7 @@ import { APP_NAME, APP_TAGLINE } from '@trip2world/shared';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { SessionProvider } from '@/components/session-provider';
 import './globals.css';
 
 /**
@@ -67,7 +68,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );

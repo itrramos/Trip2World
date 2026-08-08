@@ -94,6 +94,15 @@ export function countryName(code: string | null | undefined): string | null {
 /**
  * Regional-indicator emoji flag for an alpha-2 code, e.g. `PT` -> 🇵🇹.
  * Returns an empty string for anything that is not two ASCII letters.
+ *
+ * IMPORTANT — this does not render everywhere. Windows ships no flag glyphs at all, so
+ * Chrome, Edge and Firefox on Windows display the underlying regional indicators as bare
+ * letters ("PT" instead of 🇵🇹). That is not a bug you can fix in code; it is a missing
+ * font on the platform, and it affects a large share of desktop users.
+ *
+ * Consequence for the UI: a flag may be used as decoration alongside a country name, but
+ * NEVER as the only way a country is identified. Use `formatCountry` (which always
+ * includes the name) or render the name separately.
  */
 export function countryFlagEmoji(code: string | null | undefined): string {
   if (!code || !/^[A-Za-z]{2}$/.test(code)) return '';
@@ -105,9 +114,15 @@ export function countryFlagEmoji(code: string | null | undefined): string {
   );
 }
 
-/** Display string used across web and mobile, e.g. "🇵🇹 Portugal". */
+/**
+ * Display string used across web and mobile, e.g. "🇵🇹 Portugal".
+ *
+ * The name is always present, so this degrades to "Portugal" wherever the flag glyph is
+ * unavailable rather than degrading to "PT Portugal" being the only clue.
+ */
 export function formatCountry(code: string | null | undefined): string | null {
   const country = getCountry(code);
   if (!country) return null;
-  return `${countryFlagEmoji(country.code)} ${country.name}`;
+  const flag = countryFlagEmoji(country.code);
+  return flag ? `${flag} ${country.name}` : country.name;
 }

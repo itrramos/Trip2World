@@ -25,8 +25,18 @@ const nextConfig = {
    * apps/web and the workspace packages (@trip2world/shared, /types) are left out of the
    * bundle. That failure only appears at runtime, as a module-not-found in the container.
    */
-  output: 'standalone',
-  outputFileTracingRoot: repoRoot,
+  /**
+   * Standalone is what the production image ships, so it is the default.
+   *
+   * It can be disabled with NEXT_DISABLE_STANDALONE=1 for local builds on Windows, where
+   * creating symlinks requires elevated privileges and the trace-copy step fails with
+   * EPERM *after* a successful compile. That is a platform limitation, not a code fault —
+   * the Docker build runs on Linux and is unaffected — but without an escape hatch a
+   * Windows contributor cannot verify their own build.
+   */
+  ...(process.env.NEXT_DISABLE_STANDALONE === '1'
+    ? {}
+    : { output: 'standalone', outputFileTracingRoot: repoRoot }),
 
   // Workspace packages ship TypeScript source, so Next must compile them itself.
   transpilePackages: ['@trip2world/shared', '@trip2world/types', '@trip2world/validation'],
