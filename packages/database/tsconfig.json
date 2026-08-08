@@ -1,0 +1,9 @@
+{
+  "extends": "@trip2world/config/tsconfig/library.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "scripts/**/*.ts", "tsup.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

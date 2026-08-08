@@ -1,0 +1,23 @@
+{
+  "name": "@trip2world/config",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "files": ["tsconfig", "eslint"],
+  "exports": {
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./tsconfig/library.json": "./tsconfig/library.json",
+    "./tsconfig/nextjs.json": "./tsconfig/nextjs.json",
+    "./tsconfig/react-native.json": "./tsconfig/react-native.json",
+    "./eslint/base.cjs": "./eslint/base.cjs",
+    "./eslint/node.cjs": "./eslint/node.cjs",
+    "./eslint/next.cjs": "./eslint/next.cjs"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0"
+  }
+}

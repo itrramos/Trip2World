@@ -1,0 +1,375 @@
+# Trip2World — production stack
+#
+#   docker compose up -d                          # direct / proxied modes
+#   docker compose --profile tunnel up -d         # Cloudflare Tunnel mode
+#
+# Portainer: Stacks -> Add stack -> Repository, then upload .env as the stack's
+# environment file. See docs/DEPLOYMENT.md.
+#
+# Only the reverse proxy and coturn are published to the host. Postgres, Redis and
+# every application container stay on the internal network and are unreachable from
+# the LAN — publishing 5432 or 6379 on a home server is one of the most common ways
+# a self-hosted database ends up on Shodan.
+
+name: trip2world
+
+x-common-env: &common-env
+  NODE_ENV: ${NODE_ENV:-production}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  APP_URL: ${APP_URL}
+  APP_DOMAIN: ${APP_DOMAIN}
+  ADMIN_URL: ${ADMIN_URL}
+  ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+  TRUST_PROXY: ${TRUST_PROXY:-true}
+
+x-backend-env: &backend-env
+  <<: *common-env
+  DATABASE_URL: ${DATABASE_URL}
+  REDIS_URL: ${REDIS_URL}
+  REDIS_PREFIX: ${REDIS_PREFIX:-t2w}
+  JWT_SECRET: ${JWT_SECRET}
+  SESSION_SECRET: ${SESSION_SECRET}
+  IP_HASH_SALT: ${IP_HASH_SALT}
+  TURN_SECRET: ${TURN_SECRET}
+  TURN_DOMAIN: ${TURN_DOMAIN}
+  TURN_PORT: ${TURN_PORT:-3478}
+  TURN_TLS_PORT: ${TURN_TLS_PORT:-5349}
+  TURN_ENABLE_TCP: ${TURN_ENABLE_TCP:-true}
+  TURN_ENABLE_TLS: ${TURN_ENABLE_TLS:-false}
+  USE_PUBLIC_STUN_FALLBACK: ${USE_PUBLIC_STUN_FALLBACK:-false}
+
+x-restart: &restart
+  restart: unless-stopped
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
+
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Edge
+  # ───────────────────────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2.8-alpine
+    <<: [*restart, *logging]
+    # The ONLY published HTTP port. Everything reaches Trip2World through here.
+    ports:
+      - '${PUBLIC_PORT:-8181}:8181'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      DEPLOY_MODE: ${DEPLOY_MODE:-tunnel}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+    volumes:
+      - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    # Caddy deliberately does NOT wait on the application containers.
+    #
+    # A reverse proxy that refuses to start because one backend is unhealthy converts a
+    # single degraded service into a total outage — and makes the /healthz endpoint
+    # unreachable precisely when you need it to diagnose the problem. Each route returns
+    # its own error via `handle_errors` if its upstream is down, and recovers on its own
+    # when the upstream returns.
+    #
+    # It also means the stack can be brought up incrementally, which is how you verify
+    # DNS, the Cloudflare tunnel and TURN before every application exists.
+    depends_on:
+      api: { condition: service_started }
+      realtime: { condition: service_started }
+    networks: [edge, internal]
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8181/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Cloudflare Tunnel. Enabled with `--profile tunnel`.
+  #
+  # This is the mode that makes port 8181 work with Cloudflare at all: the tunnel
+  # dials OUT to Cloudflare, so the origin port is never negotiated and the
+  # restricted origin-port list does not apply. It also needs no inbound firewall
+  # rule and no port forward, which suits a ZimaOS box behind CGNAT.
+  #
+  # Point the tunnel's public hostname at:  http://caddy:8181
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    <<: [*restart, *logging]
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      caddy: { condition: service_started }
+    networks: [edge]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Applications
+  # ───────────────────────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/next.Dockerfile
+      args:
+        APP: web
+        # Next.js inlines NEXT_PUBLIC_* at build time, so these must be build args
+        # rather than runtime environment — setting them only at runtime is a
+        # classic cause of a production bundle still pointing at localhost.
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL}
+        NEXT_PUBLIC_REALTIME_PATH: ${NEXT_PUBLIC_REALTIME_PATH:-/rt}
+    <<: [*restart, *logging]
+    environment:
+      <<: *common-env
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  admin:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/next.Dockerfile
+      args:
+        APP: admin
+        NEXT_PUBLIC_APP_URL: ${ADMIN_URL}
+        # Admin talks to the API on its OWN origin, so its session cookie stays
+        # host-scoped and is never sent by the public web app.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_ADMIN_API_URL}
+    <<: [*restart, *logging]
+    environment:
+      <<: *common-env
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/node.Dockerfile
+      args:
+        APP: api
+    <<: [*restart, *logging]
+    environment:
+      <<: *backend-env
+      PORT: 4000
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      MAIL_FROM: ${MAIL_FROM:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      MINIMUM_AGE: ${MINIMUM_AGE:-18}
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-true}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-true}
+      GUEST_ACCESS_ENABLED: ${GUEST_ACCESS_ENABLED:-false}
+      MAINTENANCE_MODE: ${MAINTENANCE_MODE:-false}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:4000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  realtime:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/node.Dockerfile
+      args:
+        APP: realtime
+    <<: [*restart, *logging]
+    environment:
+      <<: *backend-env
+      PORT: 4001
+      REALTIME_NODE_ID: ${REALTIME_NODE_ID:-rt-1}
+      REALTIME_PATH: ${REALTIME_PATH:-/rt}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:4001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/node.Dockerfile
+      args:
+        APP: worker
+    <<: [*restart, *logging]
+    environment:
+      <<: *backend-env
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [internal]
+
+  # Runs `prisma migrate deploy` once, then exits. Everything that touches the
+  # database waits for it, so an upgrade cannot start serving against an old schema.
+  migrate:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/node.Dockerfile
+      args:
+        APP: api
+    restart: 'no'
+    command: ['pnpm', '--filter', '@trip2world/database', 'migrate:deploy']
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [internal]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Data
+  # ───────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    <<: [*restart, *logging]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # scram-sha-256 rather than the md5 default.
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Deliberately NOT published to the host.
+    networks: [internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    <<: [*restart, *logging]
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+      --appendonly no
+      --save ""
+    # `noeviction` is deliberate: Trip2World's Redis holds match locks and queue
+    # state, and silently evicting a lock under memory pressure would double-book
+    # users. Failing writes loudly is the safer failure mode.
+    #
+    # Persistence is off because every key here is ephemeral by design — see
+    # EPHEMERAL_KEY_PREFIXES in packages/shared/src/redis-keys.ts.
+    volumes:
+      - redis_data:/data
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--no-auth-warning', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # TURN / STUN
+  # ───────────────────────────────────────────────────────────────────────────
+  #
+  # host networking: coturn allocates relay ports dynamically across the range
+  # below, and Docker's userland proxy both mangles the source address coturn needs
+  # to see and performs badly across a large published range. Host networking is
+  # the supported deployment for coturn.
+  #
+  # These ports must be reachable from the internet DIRECTLY — Cloudflare's proxy
+  # cannot carry them. Use a grey-cloud (DNS-only) record for TURN_DOMAIN.
+  coturn:
+    image: coturn/coturn:4.6-alpine
+    <<: [*restart, *logging]
+    network_mode: host
+    volumes:
+      - ./infrastructure/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: >
+      -c /etc/coturn/turnserver.conf
+      --static-auth-secret=${TURN_SECRET}
+      --realm=${TURN_DOMAIN}
+      --external-ip=${TURN_EXTERNAL_IP}
+      --min-port=${TURN_MIN_PORT:-49160}
+      --max-port=${TURN_MAX_PORT:-49200}
+
+# Bind mounts under the CasaOS app data directory rather than named Docker volumes.
+#
+# On CasaOS the convention is /DATA/AppData/<app>, and using it means the database files
+# are visible to the CasaOS file manager, land inside whatever backs up /DATA, and survive
+# `docker compose down -v` — which would silently destroy a named volume. The trade is
+# that the host directories must exist with the right ownership before first start; see
+# the `mkdir`/`chown` step in docs/DEPLOYMENT.md.
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_ROOT:-/DATA/AppData/Trip2World}/postgres
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_ROOT:-/DATA/AppData/Trip2World}/redis
+  caddy_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_ROOT:-/DATA/AppData/Trip2World}/caddy/data
+  caddy_config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_ROOT:-/DATA/AppData/Trip2World}/caddy/config
+
+networks:
+  # Reachable from the host via the published port.
+  edge:
+  # No published ports; container-to-container only.
+  internal:
+    internal: false

@@ -1,0 +1,83 @@
+# Trip2World — development dependencies only.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   pnpm db:migrate && pnpm db:seed
+#   pnpm dev
+#
+# This file deliberately runs ONLY the backing services. The applications run on
+# the host via `pnpm dev` so hot reload, breakpoints and source maps all work.
+#
+# Unlike the production stack, these ports ARE published to the host — that is the
+# point. They bind to 127.0.0.1 rather than 0.0.0.0 so a laptop on a café network
+# is not offering an unauthenticated Redis to the room.
+
+name: trip2world-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trip2world
+      POSTGRES_USER: trip2world
+      POSTGRES_PASSWORD: trip2world_dev
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U trip2world -d trip2world']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # No password in development; the port is loopback-only.
+    command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --save ""
+    ports:
+      - '127.0.0.1:6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Catches every outbound email and serves them at http://localhost:8025.
+  # Lets the verification and password-reset flows be exercised end to end without
+  # a mail provider — and without the risk of a test run emailing a real address.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8025:8025' # web UI
+      - '127.0.0.1:1025:1025' # SMTP
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  # Local TURN, so relay paths can be exercised without exposing a server.
+  # Only reachable from the host; useless for testing across real NAT, which is
+  # what the device matrix in docs/WEBRTC.md is for.
+  coturn:
+    image: coturn/coturn:4.6-alpine
+    restart: unless-stopped
+    network_mode: host
+    command: >
+      turnserver
+      --listening-port=3478
+      --realm=localhost
+      --use-auth-secret
+      --static-auth-secret=dev_turn_secret_not_for_production_use_only_32
+      --no-cli
+      --no-tls
+      --no-dtls
+      --log-file=stdout
+      --simple-log
+      --min-port=49160
+      --max-port=49200
+
+volumes:
+  postgres_dev_data:

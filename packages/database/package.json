@@ -1,0 +1,56 @@
+{
+  "name": "@trip2world/database",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "comment": "prisma, tsx and argon2 are runtime dependencies, not dev tools. The production image runs `pnpm prune --prod`, and all three are needed after that prune: `prisma migrate deploy` runs as its own container on every deploy, and `pnpm admin:create` / `pnpm db:seed` run inside the api container via tsx. Demoting any of them to devDependencies breaks those commands in production only.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "prisma"],
+  "scripts": {
+    "build": "prisma generate && tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist .turbo",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "push": "prisma db push",
+    "reset": "prisma migrate reset --force",
+    "studio": "prisma studio",
+    "seed": "tsx prisma/seed.ts",
+    "admin:create": "tsx scripts/create-admin.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "@trip2world/shared": "workspace:*",
+    "@trip2world/types": "workspace:*",
+    "argon2": "^0.41.1",
+    "prisma": "^6.2.1",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@trip2world/config": "workspace:*",
+    "@types/node": "^22.10.5",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  }
+}

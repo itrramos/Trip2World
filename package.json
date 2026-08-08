@@ -1,0 +1,47 @@
+{
+  "name": "trip2world",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trip2World — premium random video chat and social discovery platform",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter @trip2world/web test:e2e",
+    "clean": "turbo run clean && rimraf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "db:generate": "pnpm --filter @trip2world/database generate",
+    "db:migrate": "pnpm --filter @trip2world/database migrate",
+    "db:migrate:deploy": "pnpm --filter @trip2world/database migrate:deploy",
+    "db:push": "pnpm --filter @trip2world/database push",
+    "db:seed": "pnpm --filter @trip2world/database seed",
+    "db:studio": "pnpm --filter @trip2world/database studio",
+    "db:reset": "pnpm --filter @trip2world/database reset",
+    "admin:create": "pnpm --filter @trip2world/database admin:create",
+    "docker:dev": "docker compose -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
+    "secrets:generate": "node infrastructure/scripts/generate-secrets.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "eslint": "^8.57.1",
+    "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.6.9",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "^19.0.7",
+      "@types/react-dom": "^19.0.3"
+    }
+  }
+}

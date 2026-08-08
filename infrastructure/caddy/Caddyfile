@@ -1,0 +1,172 @@
+# Trip2World reverse proxy.
+#
+# Two origins, one port (8181):
+#
+#   call.trip2fun.com/          -> web      (Next.js)
+#   call.trip2fun.com/api/*     -> api      (Fastify)
+#   call.trip2fun.com/rt        -> realtime (Socket.IO, WebSocket)
+#
+#   admin.trip2fun.com/         -> admin    (Next.js)
+#   admin.trip2fun.com/api/*    -> api      (the SAME container)
+#
+# Why /api is served under both hostnames: putting the admin panel on its own
+# origin only isolates its session if the admin UI can authenticate WITHOUT a
+# cross-origin request. Serving the API under each hostname lets both panels call
+# /api same-origin, so each cookie is host-scoped (no Domain=.trip2fun.com) and an
+# XSS in the public web bundle cannot attach a moderator's cookie to a request.
+#
+# The `http://` scheme with an explicit port keeps Caddy from trying to provision
+# its own certificate: in tunnel and proxied modes Cloudflare terminates TLS and
+# Caddy only ever speaks plain HTTP on the internal network.
+
+{
+	# Caddy's admin API is unauthenticated by design and would be a full remote
+	# reconfiguration endpoint reachable from any container on this network.
+	admin off
+
+	servers {
+		# Honour X-Forwarded-For from Cloudflare / cloudflared, so rate limiting and
+		# audit logs key on the real client rather than on the proxy's address.
+		trusted_proxies static private_ranges
+	}
+}
+
+# Shared snippets ─────────────────────────────────────────────────────────────
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# getUserMedia is required for the product to work; everything else is
+		# denied. Also stops an embedded third-party frame requesting the camera.
+		Permissions-Policy "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()"
+
+		# Drop the version banner Caddy adds by default.
+		-Server
+	}
+}
+
+(proxy_headers) {
+	header_up Host {host}
+	header_up X-Real-IP {remote_host}
+	header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
+	header_up X-Forwarded-Proto {scheme}
+}
+
+(app_log) {
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public application
+# ─────────────────────────────────────────────────────────────────────────────
+http://{$APP_DOMAIN}:8181 {
+	import app_log
+	import security_headers
+
+	# Realtime must be matched before the catch-all. Socket.IO opens with an HTTP
+	# long-poll and then upgrades, so both have to reach the same backend.
+	handle /rt* {
+		reverse_proxy realtime:4001 {
+			import proxy_headers
+
+			# A signaling socket must not be reaped as an idle HTTP connection.
+			# Socket.IO's own ping/pong is what detects a genuinely dead peer.
+			transport http {
+				read_timeout 3600s
+				write_timeout 3600s
+			}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy api:4000 {
+			import proxy_headers
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000 {
+			import proxy_headers
+		}
+	}
+
+	encode zstd gzip
+
+	handle_errors {
+		respond "Trip2World is temporarily unavailable ({err.status_code})." {err.status_code}
+	}
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin panel — separate origin, separate cookie jar
+# ─────────────────────────────────────────────────────────────────────────────
+http://{$ADMIN_DOMAIN}:8181 {
+	import app_log
+	import security_headers
+
+	# The admin panel is never a legitimate target for indexing or embedding.
+	header {
+		X-Robots-Tag "noindex, nofollow, noarchive"
+	}
+
+	# Same API container, reached same-origin so the admin cookie stays host-scoped.
+	handle /api/* {
+		reverse_proxy api:4000 {
+			import proxy_headers
+		}
+	}
+
+	handle {
+		reverse_proxy admin:3000 {
+			import proxy_headers
+		}
+	}
+
+	encode zstd gzip
+
+	handle_errors {
+		respond "Trip2World admin is temporarily unavailable ({err.status_code})." {err.status_code}
+	}
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fallback — container healthcheck and any request arriving without a known Host.
+# Deliberately serves no application content.
+# ─────────────────────────────────────────────────────────────────────────────
+:8181 {
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPLOY_MODE=direct
+# ─────────────────────────────────────────────────────────────────────────────
+# With DNS-only (grey cloud) records, Caddy obtains its own certificates. The
+# HTTP-01 challenge cannot work on a non-standard port, so the DNS-01 challenge is
+# required — which needs a Cloudflare API token with Zone:DNS:Edit and the
+# caddy-dns/cloudflare plugin compiled into the image.
+#
+# Replace the two `http://…:8181` blocks with:
+#
+#   {$APP_DOMAIN}, {$ADMIN_DOMAIN} {
+#       tls {$ACME_EMAIL} {
+#           dns cloudflare {$CLOUDFLARE_API_TOKEN}
+#       }
+#       @admin host {$ADMIN_DOMAIN}
+#       ... route by @admin ...
+#   }
+#
+# and publish 443:443 instead of 8181:8181 in docker-compose.yml.

@@ -1,0 +1,712 @@
+// Trip2World database schema.
+//
+// Conventions used throughout:
+//   * UUID primary keys — ids appear in URLs and realtime payloads, and sequential
+//     integers would leak user counts and allow enumeration.
+//   * Every table carries createdAt/updatedAt.
+//   * Soft deletion is used ONLY where moderation or safety history must survive the
+//     user record (see User.deletedAt). Everything else deletes for real, so an account
+//     deletion request genuinely removes data.
+//   * Ephemeral state (presence, queues, live match locks) lives in Redis, never here —
+//     writing a presence heartbeat to Postgres every 30s per user does not scale and is
+//     not worth durable storage.
+
+generator client {
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Enums — must stay byte-identical to packages/types/src/enums.ts             */
+/* -------------------------------------------------------------------------- */
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  OTHER
+  UNSPECIFIED
+}
+
+enum GenderPreference {
+  MALE
+  FEMALE
+  ANY
+}
+
+enum AccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DEACTIVATED
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PlanTier {
+  FREE
+  PLUS
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  EXPIRED
+}
+
+enum BillingProvider {
+  STRIPE
+  APPLE
+  GOOGLE
+  MANUAL
+}
+
+enum ReportCategory {
+  NUDITY
+  HARASSMENT
+  HATE
+  UNDERAGE
+  VIOLENCE
+  SPAM
+  SCAM
+  IMPERSONATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  ACTIONED
+  DISMISSED
+}
+
+enum ModerationActionType {
+  NOTE
+  WARNING
+  SUSPENSION
+  UNSUSPEND
+  BAN
+  UNBAN
+  DISMISS_REPORT
+  FORCE_LOGOUT
+}
+
+enum BanScope {
+  ACCOUNT
+  DEVICE
+  NETWORK
+}
+
+enum MatchEndReason {
+  SKIPPED
+  ENDED
+  DISCONNECTED
+  REPORTED
+  BLOCKED
+  TIMEOUT
+  ERROR
+  SERVER_SHUTDOWN
+  MODERATED
+}
+
+enum ConnectionRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+enum AgeBracket {
+  AGE_18_24
+  AGE_25_34
+  AGE_35_44
+  AGE_45_54
+  AGE_55_PLUS
+}
+
+enum AuditActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum OAuthProvider {
+  GOOGLE
+  APPLE
+}
+
+enum VerificationTokenKind {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  EMAIL_CHANGE
+}
+
+/* -------------------------------------------------------------------------- */
+/* Identity                                                                    */
+/* -------------------------------------------------------------------------- */
+
+model User {
+  id       String @id @default(uuid()) @db.Uuid
+  /// Stored lowercase. Citext would be nicer but requires an extension; the app
+  /// normalises on the way in and the unique index enforces the rest.
+  email    String @unique
+  username String @unique
+
+  /// Argon2id. Null for accounts created purely through OAuth — such an account cannot
+  /// be logged into with a password until the user sets one.
+  passwordHash String?
+
+  role   UserRole      @default(USER)
+  status AccountStatus @default(PENDING_VERIFICATION)
+  plan   PlanTier      @default(FREE)
+
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+
+  /// Bumped on password change and on forced logout. Any access token carrying an older
+  /// generation is rejected, which revokes every issued token at once without a
+  /// per-token denylist.
+  tokenGeneration Int @default(0)
+
+  /// Consecutive failed logins; cleared on success. Backs progressive lockout.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
+  /// Truncated, salted hash of the last IP. Used strictly for abuse correlation and
+  /// registration-flood detection — the raw address is never stored.
+  lastIpHash String?
+
+  /// Internal, moderator-only signal. MUST NOT be exposed on any user-facing API.
+  safetyScore Int @default(0)
+
+  /// Set when the user requests deletion; the worker erases the row after the grace
+  /// period. Retained until then so an accidental request can be undone.
+  deletionRequestedAt DateTime?
+  /// Soft-delete marker. Kept so moderation history and match records stay referentially
+  /// intact after erasure of personal data.
+  deletedAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile       Profile?
+  preference    Preference?
+  privacy       PrivacySetting?
+  oauthAccounts OAuthAccount[]
+  sessions      Session[]
+  interests     UserInterest[]
+  subscription  Subscription?
+
+  blocksCreated Block[] @relation("BlockCreatedBy")
+  blocksAgainst Block[] @relation("BlockTargets")
+
+  connectionsA Connection[] @relation("ConnectionUserA")
+  connectionsB Connection[] @relation("ConnectionUserB")
+
+  requestsSent     ConnectionRequest[] @relation("ConnectionRequestFrom")
+  requestsReceived ConnectionRequest[] @relation("ConnectionRequestTo")
+
+  matchParticipations MatchParticipant[]
+
+  reportsFiled    Report[] @relation("ReportReporter")
+  reportsAgainst  Report[] @relation("ReportReported")
+  reportsReviewed Report[] @relation("ReportReviewer")
+
+  moderationActionsReceived ModerationAction[] @relation("ModerationTarget")
+  moderationActionsTaken    ModerationAction[] @relation("ModerationActor")
+
+  bans        Ban[]      @relation("BanTarget")
+  bansIssued  Ban[]      @relation("BanIssuer")
+  auditEvents AuditLog[] @relation("AuditActor")
+
+  verificationTokens VerificationToken[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([role])
+  @@index([deletedAt])
+  @@index([lastIpHash])
+  @@map("users")
+}
+
+model Profile {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName String?
+  avatarUrl   String?
+  bio         String?  @db.VarChar(300)
+  /// Exact date of birth. Only ever returned to the owner; partners see an AgeBracket
+  /// derived at read time so the stored value cannot leak through a forgotten mapper.
+  birthDate   DateTime @db.Date
+  gender      Gender   @default(UNSPECIFIED)
+  /// ISO 3166-1 alpha-2. Country is the finest location granularity we store.
+  country     String?  @db.VarChar(2)
+  /// ISO 639-1 codes.
+  languages   String[] @default([])
+  locale      String   @default("en") @db.VarChar(5)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([country])
+  @@map("profiles")
+}
+
+model PrivacySetting {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  showDisplayName         Boolean @default(true)
+  showCountry             Boolean @default(true)
+  showAgeBracket          Boolean @default(true)
+  showGender              Boolean @default(true)
+  showInterests           Boolean @default(true)
+  showBio                 Boolean @default(true)
+  allowConnectionRequests Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("privacy_settings")
+}
+
+model Preference {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  preferredGender      GenderPreference @default(ANY)
+  /// Empty array means "no preference". Length is capped per plan in the service layer.
+  preferredCountries   String[]         @default([])
+  preferredLanguages   String[]         @default([])
+  preferredAgeBrackets AgeBracket[]     @default([])
+
+  autoRequeue    Boolean @default(true)
+  startMuted     Boolean @default(false)
+  startCameraOff Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("preferences")
+}
+
+/// Federated identity. A user may link several providers; the pair (provider,
+/// providerAccountId) is what actually identifies the remote account.
+model OAuthAccount {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider          OAuthProvider
+  providerAccountId String
+  /// Email as asserted by the provider at link time; informational only.
+  providerEmail     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+/// One row per logged-in device. Deleting a row revokes that device only.
+model Session {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 of the current refresh token. The token itself is never stored, so a
+  /// database leak cannot be replayed as a login.
+  refreshTokenHash String  @unique
+  /// Rotation counter. A refresh presenting an older hash means the token was replayed,
+  /// which revokes the whole family — see docs/SECURITY.md.
+  rotationCounter  Int     @default(0)
+  revokedAt        DateTime?
+  revokedReason    String?
+
+  userAgent String? @db.VarChar(400)
+  ipHash    String?
+
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Single-use, short-lived tokens for email verification and password reset.
+/// Only the hash is stored so the database cannot be used to mint a reset.
+model VerificationToken {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kind      VerificationTokenKind
+  tokenHash String                @unique
+  /// For EMAIL_CHANGE: the address being moved to, confirmed before it is applied.
+  payload   String?
+
+  consumedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, kind])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Interests                                                                   */
+/* -------------------------------------------------------------------------- */
+
+model Interest {
+  id        String @id @default(uuid()) @db.Uuid
+  /// Stable i18n key, e.g. `travel` -> `interest.travel`.
+  slug      String @unique
+  label     String
+  emoji     String?
+  sortOrder Int    @default(0)
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users UserInterest[]
+
+  @@map("interests")
+}
+
+model UserInterest {
+  userId     String @db.Uuid
+  interestId String @db.Uuid
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, interestId])
+  @@index([interestId])
+  @@map("user_interests")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Social graph                                                                */
+/* -------------------------------------------------------------------------- */
+
+/// A block is directional in intent but enforced bidirectionally: matchmaking excludes
+/// the pair regardless of who created the row.
+model Block {
+  id            String @id @default(uuid()) @db.Uuid
+  blockerId     String @db.Uuid
+  blockedUserId String @db.Uuid
+
+  blocker     User @relation("BlockCreatedBy", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedUser User @relation("BlockTargets", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  /// Visible only to the blocker.
+  reason String? @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedUserId])
+  @@index([blockedUserId])
+  @@map("blocks")
+}
+
+/// An accepted mutual connection. Stored once with a canonical ordering
+/// (userAId < userBId) so the pair cannot be duplicated in reverse.
+model Connection {
+  id      String @id @default(uuid()) @db.Uuid
+  userAId String @db.Uuid
+  userBId String @db.Uuid
+
+  userA User @relation("ConnectionUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("ConnectionUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  originMatchId String? @db.Uuid
+
+  createdAt DateTime @default(now())
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+  @@map("connections")
+}
+
+model ConnectionRequest {
+  id         String @id @default(uuid()) @db.Uuid
+  fromUserId String @db.Uuid
+  toUserId   String @db.Uuid
+
+  fromUser User @relation("ConnectionRequestFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("ConnectionRequestTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  status  ConnectionRequestStatus @default(PENDING)
+  message String?                 @db.VarChar(200)
+  matchId String?                 @db.Uuid
+
+  respondedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId, status])
+  @@map("connection_requests")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Matches                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/// A completed or in-flight conversation.
+///
+/// Deliberately records NO conversation content: no video, no audio, no transcript.
+/// Only the metadata needed to action an abuse report, measure quality, and prevent
+/// immediate rematching. See docs/MODERATION.md.
+model Match {
+  id String @id @default(uuid()) @db.Uuid
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  /// Denormalised for cheap analytics queries; written once at teardown.
+  durationSeconds Int?
+
+  endReason MatchEndReason?
+  /// Who pressed Next / left first. Null when the server ended it.
+  endedById String?         @db.Uuid
+
+  /// Relaxation stage each side had reached when paired — feeds matchmaking tuning.
+  seekerStage    Int?
+  candidateStage Int?
+  /// Realtime node that brokered the match, for cross-node debugging.
+  nodeId         String?
+
+  participants MatchParticipant[]
+  reports      Report[]
+
+  @@index([startedAt])
+  @@index([endedAt])
+  @@map("matches")
+}
+
+model MatchParticipant {
+  id      String @id @default(uuid()) @db.Uuid
+  matchId String @db.Uuid
+  userId  String @db.Uuid
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Whether this side created the SDP offer.
+  wasInitiator Boolean @default(false)
+  /// Final ICE candidate pair type, e.g. `relay` when TURN was required. Operationally
+  /// valuable: a sudden rise in relay usage usually means STUN is being blocked.
+  candidateType String? @db.VarChar(10)
+  /// Last reported quality bucket.
+  connectionQuality String? @db.VarChar(12)
+
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  @@unique([matchId, userId])
+  @@index([userId, joinedAt])
+  @@map("match_participants")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Safety and moderation                                                       */
+/* -------------------------------------------------------------------------- */
+
+model Report {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Null once the reporter deletes their account — the report itself survives, because
+  /// dropping abuse history when a reporter leaves would be exploitable.
+  reporterId     String? @db.Uuid
+  reportedUserId String  @db.Uuid
+  matchId        String? @db.Uuid
+
+  reporter     User?  @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reportedUser User   @relation("ReportReported", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  match        Match? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+
+  category ReportCategory
+  details  String?        @db.VarChar(1000)
+  status   ReportStatus   @default(PENDING)
+
+  reviewedById String?   @db.Uuid
+  reviewedBy   User?     @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  /// Moderator-only. Never returned by a non-moderator endpoint.
+  moderatorNotes String? @db.VarChar(2000)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([reportedUserId, status])
+  @@index([category, status])
+  @@map("reports")
+}
+
+model ModerationAction {
+  id String @id @default(uuid()) @db.Uuid
+
+  targetUserId String @db.Uuid
+  targetUser   User   @relation("ModerationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  /// Null for automated actions taken by the abuse pipeline.
+  moderatorId String? @db.Uuid
+  moderator   User?   @relation("ModerationActor", fields: [moderatorId], references: [id], onDelete: SetNull)
+
+  type ModerationActionType
+  /// User-safe explanation, surfaced to the target.
+  reason String @db.VarChar(500)
+  /// Internal note, never surfaced to the target.
+  notes  String? @db.VarChar(2000)
+
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([targetUserId, createdAt])
+  @@index([moderatorId])
+  @@map("moderation_actions")
+}
+
+model Ban {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation("BanTarget", fields: [userId], references: [id], onDelete: Cascade)
+
+  issuedById String? @db.Uuid
+  issuedBy   User?   @relation("BanIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  scope     BanScope @default(ACCOUNT)
+  reason    String   @db.VarChar(500)
+  permanent Boolean  @default(false)
+  expiresAt DateTime?
+
+  liftedAt   DateTime?
+  liftedById String?   @db.Uuid
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, liftedAt])
+  @@index([expiresAt])
+  @@map("bans")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Billing                                                                     */
+/* -------------------------------------------------------------------------- */
+
+model Subscription {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  plan     PlanTier
+  status   SubscriptionStatus
+  provider BillingProvider
+
+  /// Opaque provider-side identifiers. Absent for MANUAL grants.
+  providerCustomerId     String?
+  providerSubscriptionId String? @unique
+
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Operations                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/// Append-only record of sensitive actions. Nothing in the application updates or
+/// deletes these rows; retention is handled by a scheduled job.
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  actorId   String?        @db.Uuid
+  actor     User?          @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorType AuditActorType @default(SYSTEM)
+
+  /// Dotted action key, e.g. `admin.user.ban` or `auth.password.reset`.
+  action     String
+  targetType String?
+  targetId   String?
+
+  /// Structured context. Must never contain secrets, tokens, or raw IP addresses.
+  metadata Json?
+
+  ipHash    String?
+  requestId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}
+
+model FeatureFlag {
+  id                String  @id @default(uuid()) @db.Uuid
+  key               String  @unique
+  enabled           Boolean @default(false)
+  description       String?
+  /// 0-100. Below 100, membership is decided by a deterministic hash of (key, userId).
+  rolloutPercentage Int     @default(100)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+/// Operator-tunable runtime configuration, edited from the admin panel.
+/// Read through a short-lived Redis cache rather than on every request.
+model SystemSetting {
+  id    String @id @default(uuid()) @db.Uuid
+  key   String @unique
+  value Json
+
+  description String?
+  updatedById String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

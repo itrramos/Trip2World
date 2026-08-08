@@ -1,0 +1,62 @@
+# Keep the build context small and, more importantly, correct.
+#
+# node_modules is the critical entry. It contains platform-specific native binaries
+# (argon2, Prisma engines) built for the HOST. Copying a Windows or glibc build into an
+# Alpine/musl container produces runtime errors that look nothing like their cause —
+# "invalid ELF header", or a Prisma engine that silently cannot start. The image must
+# always install its own.
+
+node_modules
+**/node_modules
+
+# Build output — regenerated inside the image.
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+.turbo
+**/.turbo
+*.tsbuildinfo
+
+# Secrets. A .env in the build context would be baked into an image layer and remain
+# readable via `docker history` even if a later layer deletes it.
+.env
+.env.*
+!.env.example
+
+# Version control and CI.
+.git
+.gitignore
+.github
+
+# Local tooling and editor state.
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Tests and coverage — not needed at runtime, and they slow the context upload.
+coverage
+**/coverage
+test-results
+playwright-report
+blob-report
+**/*.test.ts
+**/*.spec.ts
+
+# Mobile: never part of a server image, and the native folders are large.
+apps/mobile/.expo
+apps/mobile/android
+apps/mobile/ios
+
+# Runtime data that may exist beside the repo on a server.
+backups
+data
+uploads
+
+# Documentation.
+docs
+*.md
+!README.md

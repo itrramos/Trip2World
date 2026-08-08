@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // No rootDir: a relative path here resolves against THIS file's directory, not the
+    // consuming package's, so `"rootDir": "src"` pointed every package at
+    // packages/config/tsconfig/src. tsup performs the actual build; tsc is only ever
+    // used for --noEmit type checking, which needs neither rootDir nor outDir.
+    "outDir": "dist",
+    "composite": false
+  }
+}
