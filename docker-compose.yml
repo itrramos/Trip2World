@@ -335,11 +335,16 @@ services:
     network_mode: host
     volumes:
       - ./infrastructure/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    # `:?` rather than a default. An empty TURN_EXTERNAL_IP renders as `--external-ip=`,
+    # which coturn does not reject — it starts, and then advertises relay candidates
+    # nobody can route to. Calls fail for exactly the users who need a relay, with every
+    # container healthy and nothing in any log. Refusing to start is far better than
+    # running in a state that looks fine and is not.
     command: >
       -c /etc/coturn/turnserver.conf
       --static-auth-secret=${TURN_SECRET}
       --realm=${TURN_DOMAIN}
-      --external-ip=${TURN_EXTERNAL_IP}
+      --external-ip=${TURN_EXTERNAL_IP:?set TURN_EXTERNAL_IP in .env to this host public IP - TURN cannot work without it}
       --min-port=${TURN_MIN_PORT:-49160}
       --max-port=${TURN_MAX_PORT:-49200}
 

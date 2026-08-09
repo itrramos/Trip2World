@@ -163,6 +163,14 @@ jobs:
           NEXT_PUBLIC_REALTIME_URL: https://example.test
           NEXT_PUBLIC_REALTIME_PATH: /rt
 
+      # Reads the built bundles and asserts every surviving bare import is a declared
+      # dependency of that app. This exact bug has shipped three times — argon2,
+      # prisma/tsx, nodemailer — and it cannot be caught by typecheck, lint or any test
+      # that imports from source. It only appears as ERR_MODULE_NOT_FOUND in a pruned
+      # production container, at startup, after a deploy.
+      - name: Verify runtime dependencies are declared
+        run: pnpm deps:check
+
       - name: Verify standalone output exists
         # A silently-skipped standalone build is the failure mode that broke a deploy
         # before: it only surfaces as a failing Docker COPY much later.

@@ -8,6 +8,7 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   noExternal: [/^@trip2world\//],
-  external: ["@prisma/client", "argon2", "ioredis", "bullmq", "nodemailer"],
+  // The worker does not hash passwords; argon2 was listed here and never imported.
+  external: ["@prisma/client", "ioredis", "bullmq", "nodemailer"],
   dts: false,
 });
