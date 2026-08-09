@@ -603,7 +603,29 @@ export function useConversation() {
         // Token in the handshake payload, never a query string: query strings are logged
         // by proxies and land in browser history.
         auth: { token },
-        transports: ['websocket', 'polling'],
+
+        /**
+         * Polling first, then upgrade — the Socket.IO default, restored deliberately.
+         *
+         * This was `['websocket', 'polling']`, which reads like a sensible preference
+         * and is a trap: **Socket.IO v4 does not fall back to the next transport when
+         * the first fails.** The list is an ordered preference only for the initial
+         * attempt; without `tryAllTransports` a failed WebSocket handshake ends the
+         * connection attempt entirely, even though polling would have worked.
+         *
+         * That is exactly what happened behind a Cloudflare Tunnel: `curl` proved the
+         * polling handshake reached the realtime container through the tunnel, from the
+         * public internet, while every browser sat on "Cannot reach Trip2World". The
+         * server was never the problem and its logs were correctly silent.
+         *
+         * The default order costs one extra HTTP request and then upgrades to a real
+         * WebSocket in the usual way. `tryAllTransports` is belt and braces for a
+         * network where the upgrade is blocked outright — the call then runs on long
+         * polling, which is worse but is not nothing.
+         */
+        transports: ['polling', 'websocket'],
+        tryAllTransports: true,
+
         reconnection: true,
         reconnectionDelay: 500,
         reconnectionDelayMax: 5_000,

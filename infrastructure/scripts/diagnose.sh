@@ -80,6 +80,23 @@ if [[ -n "$APP_URL" ]]; then
     warn "Caddy answers locally but the tunnel does not carry it. Check the tunnel's"
     warn "service target and that WebSockets are not disabled for the hostname."
   fi
+
+  # The polling handshake above and the WebSocket upgrade are two different things, and
+  # a tunnel can carry one and not the other. Testing only polling is how a browser-only
+  # failure hid behind three green checks: every curl passed, every user saw "Cannot
+  # reach Trip2World", and the realtime logs were silent because nothing arrived.
+  upgrade="$(curl -sS -i --max-time 10 \
+    -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+    -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: ZGlhZ25vc2Uxc2NyaXB0MQ==' \
+    "${APP_URL}/rt/?EIO=4&transport=websocket" 2>/dev/null | head -n1)"
+
+  if grep -q '101' <<<"$upgrade"; then
+    ok "internet → WebSocket upgrade accepted"
+  else
+    bad "internet → WebSocket upgrade refused. Got: ${upgrade:-<nothing>}"
+    warn "Polling works but the upgrade does not. Calls will fall back to long polling"
+    warn "at best. Check that the tunnel and any proxy in front allow WebSockets."
+  fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,8 +105,11 @@ head_ "What the browser bundle was built with"
 # NEXT_PUBLIC_* are inlined at BUILD time. Changing .env and restarting does nothing —
 # the old value is already compiled into the JavaScript being served. This is the single
 # most common cause of "the config is right but the app disagrees".
+# The standalone image lays the bundle out under apps/web/.next/static, not .next/static,
+# which is why the first version of this check reported "could not read" and told nobody
+# anything useful.
 baked="$(docker compose exec -T web sh -c \
-  "grep -rhoE 'https://[a-zA-Z0-9.-]+' .next/static 2>/dev/null | sort -u | head -20" 2>/dev/null)"
+  "grep -rhoE 'https://[a-zA-Z0-9.-]+' apps/web/.next/static .next/static 2>/dev/null | sort -u | head -20" 2>/dev/null)"
 
 if [[ -z "$baked" ]]; then
   warn "Could not read the built bundle."
