@@ -52,6 +52,8 @@ export interface ApiClient {
   get<T>(path: string, options?: RequestOptions): Promise<T>;
   post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
   patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
+  /** Full replacement, used where a partial update has no meaning (e.g. interests). */
+  put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T>;
   delete<T>(path: string, options?: RequestOptions): Promise<T>;
 
   setAccessToken(token: string | null, expiresInSeconds?: number): void;
@@ -159,6 +161,7 @@ export function createApiClient(baseUrl: string): ApiClient {
     get: (path, options) => request(path, { ...options, method: 'GET' }),
     post: (path, body, options) => request(path, { ...options, method: 'POST', body }),
     patch: (path, body, options) => request(path, { ...options, method: 'PATCH', body }),
+    put: (path, body, options) => request(path, { ...options, method: 'PUT', body }),
     delete: (path, options) => request(path, { ...options, method: 'DELETE' }),
 
     setAccessToken,

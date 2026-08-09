@@ -10,7 +10,10 @@ import { createApiClient } from '@trip2world/ui';
  */
 export const api = createApiClient(process.env.NEXT_PUBLIC_API_URL ?? '/api');
 
-export const { setAccessToken, getAccessToken, hasValidAccessToken, refresh, ensureAccessToken } =
-  api;
+export const setAccessToken = api.setAccessToken;
+export const getAccessToken = api.getAccessToken;
+export const hasValidAccessToken = api.hasValidAccessToken;
+export const refresh = api.refresh;
+export const ensureAccessToken = api.ensureAccessToken;
 
 export { ApiRequestError } from '@trip2world/ui';
