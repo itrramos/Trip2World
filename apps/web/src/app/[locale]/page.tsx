@@ -12,6 +12,7 @@ import {
   Video,
 } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { LandingNav } from '@/components/landing-nav';
 import { Link } from '@/i18n/navigation';
 
 /**
@@ -71,20 +72,8 @@ export default async function LandingPage({
           {APP_NAME}
         </span>
 
-        <nav className="flex items-center gap-2 text-sm">
-          <Link
-            href="/login"
-            className="rounded-sm px-4 py-2 text-muted transition-colors duration-fast hover:text-foreground"
-          >
-            {tCommon('signIn')}
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-sm bg-surface-raised px-4 py-2 font-medium transition-colors duration-fast hover:bg-border"
-          >
-            {tCommon('createAccount')}
-          </Link>
-        </nav>
+        {/* The only part of this page that depends on who is looking at it. */}
+        <LandingNav />
       </header>
 
       <main id="main" className="relative z-10">

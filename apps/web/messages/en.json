@@ -146,6 +146,7 @@
   "discover": {
     "tokensLabel": "tokens — open token settings",
     "settings": "Settings",
+    "home": "Home",
     "tryAgain": "Try again",
     "backToHome": "Back to home",
 
@@ -321,6 +322,7 @@
       "email": "Email",
       "unverified": "unverified",
       "age": "Age",
+      "signOutHint": "Sign out on this device. Your account is unaffected.",
       "deleteTitle": "Delete your account",
       "deleteBody": "Your account is deactivated immediately and permanently erased after 14 days. Signing in during that window cancels it. Reports you filed about other people are kept without any link to you — see <link>Privacy</link>.",
       "delete": "Delete account",

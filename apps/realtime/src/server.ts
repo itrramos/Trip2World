@@ -157,7 +157,20 @@ export function buildRealtimeServer(deps: RealtimeServerDeps): RealtimeServer {
       next();
     } catch (error) {
       if (error instanceof SocketAuthError) {
-        logger.debug({ code: error.code }, 'Socket authentication rejected');
+        /**
+         * `warn`, not `debug`.
+         *
+         * A rejected handshake is the single most useful line an operator can have when
+         * matchmaking is broken: it distinguishes "the browser never reached this
+         * container" from "it reached it and was turned away", and names which. At
+         * `debug` it is invisible at the default log level, so `docker compose logs
+         * realtime` shows nothing at all and the absence of output looks like proof that
+         * no request arrived — which is exactly the wrong conclusion.
+         */
+        logger.warn(
+          { code: error.code, origin: socket.handshake.headers.origin ?? null },
+          'Socket authentication rejected',
+        );
         next(new Error(error.code));
         return;
       }
@@ -347,7 +360,9 @@ export function buildRealtimeServer(deps: RealtimeServerDeps): RealtimeServer {
       });
     })();
 
-    logger.debug({ userId, socketId: socket.id }, 'Socket connected');
+    // `info`: a successful connection is the other half of the diagnostic above. Between
+    // them, "is anything reaching this container?" is answerable from the logs alone.
+    logger.info({ userId, socketId: socket.id }, 'Socket connected');
 
     /* --- Presence ------------------------------------------------- */
 

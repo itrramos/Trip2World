@@ -54,7 +54,7 @@ const TABS: Tab[] = ['profile', 'privacy', 'matching', 'blocked', 'account'];
 export default function SettingsPage() {
   const t = useTranslations('settings');
   const tCommon = useTranslations('common');
-  const { status } = useRequireAuth();
+  const { status, signOut } = useRequireAuth();
   const [tab, setTab] = useState<Tab>('profile');
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [interests, setInterests] = useState<InterestOption[]>([]);
@@ -161,7 +161,7 @@ export default function SettingsPage() {
         {tab === 'privacy' && <PrivacyTab profile={profile} onSave={save} />}
         {tab === 'matching' && <MatchingTab profile={profile} onSave={save} />}
         {tab === 'blocked' && <BlockedTab />}
-        {tab === 'account' && <AccountTab profile={profile} />}
+        {tab === 'account' && <AccountTab profile={profile} onSignOut={signOut} />}
       </div>
     </main>
   );
@@ -553,7 +553,13 @@ function BlockedTab() {
  */
 const DELETE_CONFIRMATION = 'DELETE';
 
-function AccountTab({ profile }: { profile: ProfileResponse }) {
+function AccountTab({
+  profile,
+  onSignOut,
+}: {
+  profile: ProfileResponse;
+  onSignOut: () => Promise<void>;
+}) {
   const t = useTranslations('settings.account');
   const tCommon = useTranslations('common');
   const format = useFormatter();
@@ -600,6 +606,19 @@ function AccountTab({ profile }: { profile: ProfileResponse }) {
           <dd>{profile.age ?? '—'}</dd>
         </div>
       </dl>
+
+      {/*
+        Signing out had no button anywhere in this app. `signOut` existed on the session
+        context and nothing ever called it, so the only way to end a session was to clear
+        cookies — which is not something a user should have to know, and made every other
+        session-related behaviour impossible to reason about.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-sm border border-border p-4">
+        <span className="text-sm text-muted">{t('signOutHint')}</span>
+        <Button variant="secondary" onClick={() => void onSignOut()}>
+          {tCommon('signOut')}
+        </Button>
+      </div>
 
       <div className="rounded-lg border border-danger/30 p-5">
         <h2 className="font-medium text-danger">{t('deleteTitle')}</h2>

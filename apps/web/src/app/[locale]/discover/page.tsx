@@ -9,6 +9,7 @@ import {
   Coins,
   Flag,
   Gift,
+  Home,
   Settings,
   Loader2,
   LogOut,
@@ -133,6 +134,21 @@ export default function DiscoverPage() {
         Kept minimal so it does not compete with the video.
       */}
       <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+        {/*
+          A way out that is not "sign out".
+
+          This page had no route home at all, so the only visible way to leave it was the
+          browser's back button — and a user who wants to re-read the guidelines or the
+          Terms had nowhere to go. Leaving Discover must not look like leaving the account.
+        */}
+        <Link
+          href="/"
+          aria-label={t('home')}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10"
+        >
+          <Home className="h-4 w-4" aria-hidden />
+        </Link>
+
         <Link
           href="/settings/tokens"
           className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-3 py-1.5 text-xs backdrop-blur transition-colors hover:bg-white/10"

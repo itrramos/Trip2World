@@ -146,6 +146,7 @@
   "discover": {
     "tokensLabel": "tokens — abrir definições de tokens",
     "settings": "Definições",
+    "home": "Início",
     "tryAgain": "Tentar novamente",
     "backToHome": "Voltar ao início",
 
@@ -327,6 +328,7 @@
       "email": "Email",
       "unverified": "por confirmar",
       "age": "Idade",
+      "signOutHint": "Terminar sessão neste dispositivo. A tua conta não é afetada.",
       "deleteTitle": "Eliminar a tua conta",
       "deleteBody": "A tua conta é desativada de imediato e apagada definitivamente ao fim de 14 dias. Entrar durante esse período cancela o pedido. As denúncias que fizeste sobre outras pessoas são mantidas sem qualquer ligação a ti — vê a <link>Privacidade</link>.",
       "delete": "Eliminar conta",
