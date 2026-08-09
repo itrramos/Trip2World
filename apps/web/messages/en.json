@@ -148,6 +148,7 @@
     "settings": "Settings",
     "home": "Home",
     "connections": "Connections",
+    "leaveBlocked": "End the conversation first — leaving this page hangs up.",
     "tryAgain": "Try again",
     "backToHome": "Back to home",
 

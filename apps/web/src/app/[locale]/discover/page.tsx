@@ -26,7 +26,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
 import { MEDIA_ERROR_RETRYABLE } from '@/lib/media';
@@ -34,9 +34,9 @@ import { GrantNotice } from '@/components/grant-notice';
 import { useRequireAuth } from '@/components/session-provider';
 import { TipDialog, TipOfferPrompt, TipToast } from '@/components/tips';
 import { useConversation } from '@/hooks/use-conversation';
+import { useWakeLock } from '@/hooks/use-wake-lock';
 import { Button, cn } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
-import { routing } from '@/i18n/routing';
 
 /** Four escalating hints, chosen by how long the search has been running. */
 const SEARCH_HINT_COUNT = 4;
@@ -131,6 +131,22 @@ export default function DiscoverPage() {
     }
   }, [state, conversation.localStream, conversation.remoteStream]);
 
+  /**
+   * Hold the screen awake while there is a live conversation, and while searching.
+   *
+   * Searching counts: waiting forty seconds for a match with the phone on a table is
+   * exactly when the screen locks, and the queue place is dropped the moment the socket
+   * goes with it.
+   */
+  useWakeLock(
+    state === SessionState.CONNECTED ||
+      state === SessionState.CONNECTING ||
+      state === SessionState.SIGNALING ||
+      state === SessionState.RECONNECTING ||
+      state === SessionState.QUEUED ||
+      state === SessionState.MATCH_FOUND,
+  );
+
   // Call duration.
   useEffect(() => {
     if (state !== SessionState.CONNECTED) {
@@ -180,31 +196,63 @@ export default function DiscoverPage() {
         person they are talking to — and a confirmation dialog would only make the loss
         expected rather than avoidable.
       */}
-      <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
-        <TopBarLink href="/" label={t('home')} inCall={inCall}>
-          <Home className="h-4 w-4" aria-hidden />
-        </TopBarLink>
+      {/*
+        One row, not two absolutely-positioned bars.
 
-        <TopBarLink href="/settings/tokens" label={t('tokensLabel')} inCall={inCall} wide>
-          <Coins className="h-3.5 w-3.5 text-brand" aria-hidden />
-          <span className="tabular-nums">
-            {conversation.tokenBalance === null ? '—' : conversation.tokenBalance.toLocaleString()}
-          </span>
-        </TopBarLink>
+        The partner pill used to be pinned left and these buttons pinned right, and two
+        `absolute` elements have no idea the other exists — on a phone they rendered on
+        top of each other. A single flex row with `justify-between` cannot do that, and
+        the left side shrinks because it is allowed to.
+      */}
+      <div className="absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {inCall && partner && <PartnerBadge partner={partner} quality={quality} seconds={state === SessionState.CONNECTED ? callSeconds : null} />}
+        </div>
 
-        {/*
-          Connections has to be reachable from here, because here is where they are made.
-          Two pages have already shipped in this project with working code and no route
-          to them — the settings screen and the blocked list — and both times the bug was
-          invisible to every test that did not use a browser.
-        */}
-        <TopBarLink href="/connections" label={t('connections')} inCall={inCall}>
-          <Users className="h-4 w-4" aria-hidden />
-        </TopBarLink>
+        <div className="flex shrink-0 items-center gap-2">
+          <TopBarLink href="/" label={t('home')} inCall={inCall} blockedLabel={t('leaveBlocked')}>
+            <Home className="h-4 w-4" aria-hidden />
+          </TopBarLink>
 
-        <TopBarLink href="/settings" label={t('settings')} inCall={inCall}>
-          <Settings className="h-4 w-4" aria-hidden />
-        </TopBarLink>
+          <TopBarLink
+            href="/settings/tokens"
+            label={t('tokensLabel')}
+            inCall={inCall}
+            blockedLabel={t('leaveBlocked')}
+            wide
+          >
+            <Coins className="h-3.5 w-3.5 text-brand" aria-hidden />
+            <span className="tabular-nums">
+              {conversation.tokenBalance === null
+                ? '—'
+                : conversation.tokenBalance.toLocaleString()}
+            </span>
+          </TopBarLink>
+
+          {/*
+            Connections has to be reachable from here, because here is where they are
+            made. Two pages have already shipped in this project with working code and no
+            route to them — the settings screen and the blocked list — and both times the
+            bug was invisible to every test that did not use a browser.
+          */}
+          <TopBarLink
+            href="/connections"
+            label={t('connections')}
+            inCall={inCall}
+            blockedLabel={t('leaveBlocked')}
+          >
+            <Users className="h-4 w-4" aria-hidden />
+          </TopBarLink>
+
+          <TopBarLink
+            href="/settings"
+            label={t('settings')}
+            inCall={inCall}
+            blockedLabel={t('leaveBlocked')}
+          >
+            <Settings className="h-4 w-4" aria-hidden />
+          </TopBarLink>
+        </div>
       </div>
 
       {/* ── Remote video / stage ─────────────────────────────────────── */}
@@ -386,20 +434,6 @@ export default function DiscoverPage() {
             <p className="text-sm text-muted">
               {state === SessionState.RECONNECTING ? t('reconnecting') : t('connecting')}
             </p>
-          </div>
-        )}
-
-        {/* Partner info */}
-        {inCall && partner && (
-          <div className="absolute left-4 top-4 flex items-center gap-3 rounded-full border border-white/10 bg-black/50 px-4 py-2 backdrop-blur">
-            <span className="text-sm font-medium">{partner.displayName ?? partner.username}</span>
-            {partner.country && (
-              <span className="text-sm text-muted">{countryName(partner.country)}</span>
-            )}
-            <QualityBadge quality={quality} />
-            {state === SessionState.CONNECTED && (
-              <span className="tabular-nums text-xs text-muted">{formatDuration(callSeconds)}</span>
-            )}
           </div>
         )}
 
@@ -631,53 +665,82 @@ export default function DiscoverPage() {
 
 /* -------------------------------------------------------------------------- */
 
+/** The person on the other end. Shrinks rather than colliding with the buttons. */
+function PartnerBadge({
+  partner,
+  quality,
+  seconds,
+}: {
+  partner: { displayName: string | null; username: string; country: string | null };
+  quality: ConnectionQuality;
+  seconds: number | null;
+}) {
+  return (
+    <div className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 backdrop-blur sm:gap-3 sm:px-4">
+      {/*
+        `min-w-0` is what actually lets this shrink. A flex child defaults to
+        `min-width: auto` and refuses to go narrower than its content, which is the usual
+        reason a row that looks responsive still overflows on a phone.
+      */}
+      <span className="min-w-0 truncate text-sm font-medium">
+        {partner.displayName ?? partner.username}
+      </span>
+      {/* Country goes first on a narrow screen: longest of the four, least useful. */}
+      {partner.country && (
+        <span className="hidden truncate text-sm text-muted sm:inline">
+          {countryName(partner.country)}
+        </span>
+      )}
+      <QualityBadge quality={quality} />
+      {seconds !== null && (
+        <span className="shrink-0 tabular-nums text-xs text-muted">
+          {formatDuration(seconds)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
- * A top-bar link that does not hang up on you.
+ * A top-bar link that refuses to hang up on you.
  *
- * `target="_blank"` only while a conversation is live. Outside a call it is an ordinary
- * client-side navigation, because opening new tabs for no reason is its own annoyance.
+ * The socket, the peer connection and the media all belong to this page, so navigating
+ * away ends the conversation. The first attempt at fixing that opened these in a new tab
+ * during a call, which is worse: Android backgrounds the original tab, the camera stops
+ * producing frames, and the peer sees a frozen still of your face while the connection
+ * stays technically "connected" and nothing reports a problem.
  *
- * `rel="noopener"` is not optional on a target-blank link: without it the opened page
- * gets a `window.opener` handle back to this one and can navigate it anywhere.
+ * So during a call they are simply disabled, and say why. A conversation with a stranger
+ * lasts minutes; the settings page will still be there afterwards. The one genuinely
+ * mid-call need — topping up tokens before sending a tip — is already handled by the link
+ * inside the tip dialog, which is reachable without leaving.
  */
 function TopBarLink({
   href,
   label,
   inCall,
+  blockedLabel,
   wide = false,
   children,
 }: {
   href: string;
   label: string;
   inCall: boolean;
+  blockedLabel: string;
   wide?: boolean;
   children: React.ReactNode;
 }) {
-  const locale = useLocale();
   const className = cn(
-    'flex items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10',
+    'flex items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors',
     wide ? 'gap-1.5 px-3 py-1.5 text-xs' : 'h-8 w-8',
+    inCall ? 'cursor-not-allowed opacity-40' : 'hover:bg-white/10',
   );
 
   if (inCall) {
-    /**
-     * A plain `<a>` bypasses the locale-aware Link, so the prefix has to be added by
-     * hand — otherwise a Portuguese user opens the English page. `as-needed` means the
-     * default locale carries no prefix at all.
-     */
-    const prefixed = locale === routing.defaultLocale ? href : `/${locale}${href}`;
-
     return (
-      <a
-        href={prefixed}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={label}
-        title={label}
-        className={className}
-      >
+      <span role="link" aria-disabled="true" aria-label={label} title={blockedLabel} className={className}>
         {children}
-      </a>
+      </span>
     );
   }
 
