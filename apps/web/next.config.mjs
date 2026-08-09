@@ -16,6 +16,42 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
  */
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/**
+ * Refuse to build with a NEXT_PUBLIC_* URL that is not a URL.
+ *
+ * These are inlined into the JavaScript at build time, so a bad value cannot be
+ * corrected by fixing `.env` and restarting — it is compiled in, shipped, and only ever
+ * visible from a browser. A real one read:
+ *
+ *   NEXT_PUBLIC_REALTIME_URL=NEXT_PUBLIC_REALTIME_URL=https://trip2world.net
+ *
+ * — the whole KEY=VALUE line pasted into the value, which is an easy thing to do in a
+ * file manager. The socket then dialled a malformed address and timed out, while every
+ * server-side check passed, because the server was never contacted. Days went into that.
+ *
+ * A build is the last moment this is cheap to catch, so it is caught here. Empty is
+ * allowed: the client falls back to a same-origin relative path, which is a legitimate
+ * single-host setup.
+ */
+for (const key of ['NEXT_PUBLIC_APP_URL', 'NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_REALTIME_URL']) {
+  const value = process.env[key];
+  if (!value) continue;
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(
+      `${key} is not a valid URL: "${value}"\n` +
+        `Check .env — the most common cause is pasting the whole "${key}=..." line into the value.`,
+    );
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`${key} must be http(s), got "${value}"`);
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
