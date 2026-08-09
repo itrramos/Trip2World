@@ -128,6 +128,8 @@ export function useConversation() {
   const [switchingCamera, setSwitchingCamera] = useState(false);
 
   const socketRef = useRef<RealtimeSocket | null>(null);
+  /** Consecutive failed handshakes. Reset on a successful connect. */
+  const connectAttemptsRef = useRef(0);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
@@ -610,16 +612,31 @@ export function useConversation() {
 
       socketRef.current = socket;
 
+      /**
+       * Surface a signaling failure instead of hiding it behind the search spinner.
+       *
+       * Socket.IO retries forever by design, which is right for a dropped wifi packet
+       * and wrong for a misconfiguration: with a bad origin or a stale realtime URL,
+       * `connect_error` fires every few hundred milliseconds and the user watches
+       * "Connecting to Trip2World…" indefinitely. Nothing errors, nothing is logged
+       * where they can see it, and the app looks like it is merely slow to find someone.
+       *
+       * A handful of attempts distinguishes the two: a transient blip recovers inside
+       * one or two, and anything that survives five is not going to fix itself.
+       */
       socket.on('connect_error', () => {
         setConnected(false);
         setQueueConfirmed(false);
-        setError({
-          key: 'disconnected',
-          retry: false,
-        });
+
+        connectAttemptsRef.current += 1;
+        if (connectAttemptsRef.current >= 5) {
+          setError({ key: 'disconnected', retry: true });
+          transitionTo(SessionState.ERROR);
+        }
       });
 
       socket.on('connect', () => {
+        connectAttemptsRef.current = 0;
         setConnected(true);
         setError(null);
       });

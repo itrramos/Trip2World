@@ -252,19 +252,26 @@ export default function DiscoverPage() {
               // genuinely empty room indistinguishable from a broken matchmaker.
               alone
                 ? t('aloneTitle')
-                : !conversation.queueConfirmed
-                  ? t('connectingToServer')
-                  : t(`searchHints.${hintIndex}`)
+                : // Distinguish "the socket is not up" from "the server has not answered
+                  // yet". They look identical to a user and mean completely different
+                  // things — one is a network or configuration fault, the other is normal.
+                  !conversation.connected
+                  ? t('reconnectingToServer')
+                  : !conversation.queueConfirmed
+                    ? t('connectingToServer')
+                    : t(`searchHints.${hintIndex}`)
             }
             body={
               alone
                 ? t('aloneBody')
-                : !conversation.queueConfirmed
-                  ? t('connectingToServerBody')
-                  : t('searchingFor', { duration: formatDuration(waitingSeconds) }) +
-                    (conversation.searchingNow !== null
-                      ? ` · ${t('searchingCount', { count: conversation.searchingNow })}`
-                      : '')
+                : !conversation.connected
+                  ? t('reconnectingToServerBody')
+                  : !conversation.queueConfirmed
+                    ? t('connectingToServerBody')
+                    : t('searchingFor', { duration: formatDuration(waitingSeconds) }) +
+                      (conversation.searchingNow !== null
+                        ? ` · ${t('searchingCount', { count: conversation.searchingNow })}`
+                        : '')
             }
           >
             <div className="relative flex h-24 w-24 items-center justify-center">

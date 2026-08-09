@@ -74,6 +74,7 @@ export class CampaignsService {
         tokens: true,
         audience: true,
         startsAt: true,
+        createdAt: true,
         maxGrants: true,
         grantsIssued: true,
         requiresVerifiedEmail: true,
@@ -121,11 +122,19 @@ export class CampaignsService {
 
         /**
          * NEW_USERS means "accounts created while this was running", not "accounts that
-         * happen to be new today". Without the start-date comparison, switching on a
-         * launch promotion would retroactively pay every account that ever registered.
+         * happen to be new today". Without this comparison, switching on a launch
+         * promotion would retroactively pay every account that ever registered — the
+         * entire existing user base, at once, from a single click.
+         *
+         * The cutoff falls back to the campaign's own `createdAt` when no start time was
+         * set, which is the case the operator hits most often: leaving "Starts" blank is
+         * both the default and the advice. Treating a null start as "no cutoff" is
+         * exactly the retroactive payout this guard exists to prevent, and it would have
+         * been invisible in testing — a fresh account passes either way.
          */
-        if (campaign.audience === 'NEW_USERS' && campaign.startsAt) {
-          if (context.createdAt < campaign.startsAt) continue;
+        if (campaign.audience === 'NEW_USERS') {
+          const cutoff = campaign.startsAt ?? campaign.createdAt;
+          if (context.createdAt < cutoff) continue;
         }
 
         // Cheap pre-filter. The real guard is in claim().

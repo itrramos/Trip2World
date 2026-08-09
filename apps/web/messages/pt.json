@@ -164,6 +164,8 @@
     },
     "connectingToServer": "A ligar ao Trip2World…",
     "connectingToServerBody": "À espera que o servidor confirme o teu lugar na fila.",
+    "reconnectingToServer": "Não conseguimos contactar o Trip2World",
+    "reconnectingToServerBody": "Não estamos ligados ao servidor. A tentar novamente — verifica a tua ligação.",
     "aloneTitle": "Não há mais ninguém por aqui neste momento",
     "aloneBody": "És a única pessoa à procura. Fica por aqui e ligamos-te assim que alguém entrar.",
     "searchingFor": "À procura há {duration}",

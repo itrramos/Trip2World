@@ -164,6 +164,8 @@
     },
     "connectingToServer": "Connecting to Trip2World…",
     "connectingToServerBody": "Waiting for the server to confirm your place in the queue.",
+    "reconnectingToServer": "Cannot reach Trip2World",
+    "reconnectingToServerBody": "We are not connected to the matchmaking server. Retrying — check your connection.",
     "aloneTitle": "Nobody else is here right now",
     "aloneBody": "You are the only person searching. Stay here and we will pair you the moment someone joins.",
     "searchingFor": "Searching for {duration}",

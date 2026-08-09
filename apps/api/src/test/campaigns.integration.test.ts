@@ -235,6 +235,30 @@ describeIntegration('token campaigns (integration)', () => {
       expect(await campaigns.applyEligible(user.id)).toHaveLength(0);
     });
 
+    /**
+     * The dangerous default.
+     *
+     * Leaving "Starts" blank is both the form's default and the recommended setting, so
+     * a null start date must still mean "from now on" for NEW_USERS. Reading it as "no
+     * cutoff" would pay the entire existing user base from one click — and would pass
+     * every test written with a freshly created account.
+     */
+    it('does not pay a NEW_USERS campaign with no start date to older accounts', async () => {
+      const old = await createUser(ctx.app, 'promo-old');
+      await ctx.prisma.user.update({
+        where: { id: old.id },
+        data: { createdAt: new Date(Date.now() - 30 * 86_400_000) },
+      });
+
+      await makeCampaign({ audience: 'NEW_USERS', startsAt: null });
+
+      expect(await campaigns.applyEligible(old.id)).toHaveLength(0);
+
+      // Someone registering now still qualifies.
+      const fresh = await createUser(ctx.app, 'promo-fresh');
+      expect(await campaigns.applyEligible(fresh.id)).toHaveLength(1);
+    });
+
     it('pays an ALL_USERS campaign to an account that predates it', async () => {
       const user = await createUser(ctx.app, 'promo-returning');
 

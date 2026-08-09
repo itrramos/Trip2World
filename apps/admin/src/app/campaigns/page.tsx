@@ -36,11 +36,52 @@ interface Campaign {
   createdBy: { id: string; username: string } | null;
 }
 
-const STATUS_STYLE: Record<Status, string> = {
-  DRAFT: 'bg-surface-raised text-muted',
-  ACTIVE: 'bg-success/15 text-success',
-  PAUSED: 'bg-warning/15 text-warning',
-  ENDED: 'bg-surface-raised text-muted',
+/**
+ * What the operator actually needs to know, which is NOT the stored status.
+ *
+ * `ACTIVE` only means "switched on". A campaign can be switched on and still grant
+ * nothing — because its start time is in the future, its end time has passed, or its cap
+ * is full. Labelling all three "active / Running now" is a lie the panel tells about
+ * itself, and it is the reason a promotion appears broken when it is merely not due yet.
+ */
+type EffectiveState = 'draft' | 'scheduled' | 'running' | 'expired' | 'full' | 'paused' | 'ended';
+
+function effectiveState(campaign: Campaign, now: number): EffectiveState {
+  if (campaign.status === 'DRAFT') return 'draft';
+  if (campaign.status === 'PAUSED') return 'paused';
+  if (campaign.status === 'ENDED') return 'ended';
+
+  if (campaign.startsAt && new Date(campaign.startsAt).getTime() > now) return 'scheduled';
+  if (campaign.endsAt && new Date(campaign.endsAt).getTime() < now) return 'expired';
+  if (campaign.maxGrants !== null && campaign.grantsIssued >= campaign.maxGrants) return 'full';
+  return 'running';
+}
+
+const STATE_LABEL: Record<EffectiveState, string> = {
+  draft: 'draft',
+  scheduled: 'starts later',
+  running: 'granting',
+  expired: 'window passed',
+  full: 'limit reached',
+  paused: 'paused',
+  ended: 'ended',
+};
+
+const STATE_STYLE: Record<EffectiveState, string> = {
+  draft: 'bg-surface-raised text-muted',
+  scheduled: 'bg-brand/15 text-brand',
+  running: 'bg-success/15 text-success',
+  expired: 'bg-warning/15 text-warning',
+  full: 'bg-warning/15 text-warning',
+  paused: 'bg-warning/15 text-warning',
+  ended: 'bg-surface-raised text-muted',
+};
+
+/** Why a switched-on campaign is not granting. Shown on the row, not hidden in a doc. */
+const STATE_REASON: Partial<Record<EffectiveState, string>> = {
+  scheduled: 'Switched on, but its start time has not arrived yet. Nothing is being granted.',
+  expired: 'Switched on, but its end time has passed. Nothing is being granted.',
+  full: 'Switched on, but the recipient limit is reached. Nothing more will be granted.',
 };
 
 const AUDIENCE_LABEL: Record<Audience, string> = {
@@ -84,8 +125,16 @@ export default function CampaignsPage() {
     }
   }
 
-  const live = campaigns.filter((c) => c.status === 'ACTIVE');
-  const rest = campaigns.filter((c) => c.status !== 'ACTIVE');
+  /**
+   * Grouped by what is actually happening, not by the stored status.
+   *
+   * "Running now" must mean tokens are leaving the budget right now. A campaign that is
+   * switched on but not yet due belongs with the ones that are not granting, or the
+   * heading is worse than useless.
+   */
+  const now = Date.now();
+  const live = campaigns.filter((c) => effectiveState(c, now) === 'running');
+  const rest = campaigns.filter((c) => effectiveState(c, now) !== 'running');
 
   return (
     <Shell>
@@ -185,8 +234,9 @@ function CampaignRow({
   onStatus: (campaign: Campaign, next: Status) => void;
 }) {
   const capped = campaign.maxGrants !== null;
-  const exhausted = capped && campaign.grantsIssued >= campaign.maxGrants!;
   const spent = campaign.grantsIssued * campaign.tokens;
+  const state = effectiveState(campaign, Date.now());
+  const reason = STATE_REASON[state];
 
   return (
     <div className="rounded-lg border border-border p-5">
@@ -195,19 +245,14 @@ function CampaignRow({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium">{campaign.name}</h3>
             <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-xs font-medium',
-                STATUS_STYLE[campaign.status],
-              )}
+              className={cn('rounded-full px-2 py-0.5 text-xs font-medium', STATE_STYLE[state])}
             >
-              {campaign.status.toLowerCase()}
+              {STATE_LABEL[state]}
             </span>
-            {exhausted && campaign.status === 'ACTIVE' && (
-              <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning">
-                limit reached
-              </span>
-            )}
           </div>
+
+          {/* Say why nothing is happening, on the row, at the moment it is confusing. */}
+          {reason && <p className="mt-1.5 text-sm text-warning">{reason}</p>}
 
           {campaign.description && (
             <p className="mt-1 text-sm text-muted">{campaign.description}</p>
@@ -436,7 +481,11 @@ function CampaignForm({
         </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Starts" htmlFor="startsAt" hint="Blank to start as soon as you switch it on.">
+          <Field
+            label="Starts"
+            htmlFor="startsAt"
+            hint="Leave blank to start the moment you switch it on. Usually what you want."
+          >
             <Input
               id="startsAt"
               type="datetime-local"
@@ -453,6 +502,30 @@ function CampaignForm({
             />
           </Field>
         </div>
+
+        {/*
+          A future start date is the single most confusing thing on this form: the
+          campaign shows as switched on and grants nothing, which reads as broken. Say
+          it here, before it is saved.
+        */}
+        {startsAt && new Date(startsAt).getTime() > Date.now() && (
+          <p className="rounded-sm border border-brand/30 bg-brand/10 px-4 py-2.5 text-sm">
+            Nothing will be granted until {new Date(startsAt).toLocaleString()}, even after you
+            press Start.
+          </p>
+        )}
+        {endsAt && new Date(endsAt).getTime() < Date.now() && (
+          <p className="rounded-sm border border-warning/30 bg-warning/10 px-4 py-2.5 text-sm text-warning">
+            That end date is in the past — this promotion would never grant anything.
+          </p>
+        )}
+
+        {audience === 'NEW_USERS' && (
+          <p className="text-xs text-muted">
+            Only accounts created after this promotion starts will qualify. Accounts that
+            already exist are never paid retroactively — use “Everyone” for those.
+          </p>
+        )}
 
         <label className="flex cursor-pointer items-start justify-between gap-4 rounded-sm border border-border p-4">
           <span>
