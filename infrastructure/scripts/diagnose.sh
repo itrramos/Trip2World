@@ -144,15 +144,18 @@ fi
 # whether one of them is the PUBLIC address, because a bind to only 127.0.0.1 and the
 # bridge networks looks identical to a healthy one in a line count.
 #
-# Matching on the local-address column rather than the whole line: `\b` after the port
-# reported a bound server as unbound, because the boundary did not fall where the
-# earlier version assumed.
-listening="$(ss -ulnp 2>/dev/null | awk '{print $5}' | grep -c ":${TURN_PORT}$")"
+# The LOCAL address is column 4, not 5.
+#
+# `ss -ulnp` prints: State  Recv-Q  Send-Q  Local  Peer  Process. Column 5 is the peer,
+# which for a listening UDP socket is always `0.0.0.0:*` and never contains a port to
+# match. So this reported "not bound" for a server that was plainly bound — twice, on
+# two different wrong patterns, while the relay itself was working.
+listening="$(ss -ulnp 2>/dev/null | awk '{print $4}' | grep -c ":${TURN_PORT}$")"
 
 if [[ "$listening" -gt 0 ]]; then
   ok "coturn is listening on ${TURN_PORT}/udp ($listening sockets)"
   if [[ -n "$TURN_EXTERNAL_IP" ]]; then
-    if ss -ulnp 2>/dev/null | awk '{print $5}' | grep -q "^${TURN_EXTERNAL_IP}:${TURN_PORT}$"; then
+    if ss -ulnp 2>/dev/null | awk '{print $4}' | grep -q "^${TURN_EXTERNAL_IP}:${TURN_PORT}$"; then
       ok "  including the public address ${TURN_EXTERNAL_IP}"
     else
       bad "  but NOT on ${TURN_EXTERNAL_IP} — only loopback and container bridges"
