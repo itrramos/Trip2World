@@ -6,6 +6,7 @@ import {
   Camera,
   CameraOff,
   Flag,
+  Gift,
   Loader2,
   LogOut,
   Mic,
@@ -22,6 +23,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { MEDIA_ERROR_COPY } from '@/lib/media';
 import { useRequireAuth } from '@/components/session-provider';
+import { TipDialog, TipOfferPrompt, TipToast } from '@/components/tips';
 import { useConversation } from '@/hooks/use-conversation';
 import { Button, cn } from '@/components/ui';
 
@@ -51,7 +53,19 @@ export default function DiscoverPage() {
   /** Same remote stream, rendered blurred behind the letterboxed video. */
   const backdropVideoRef = useRef<HTMLVideoElement>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [tipOpen, setTipOpen] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
+
+  /** Most recent tip, shown briefly as a toast then cleared. */
+  const [latestTip, setLatestTip] = useState<(typeof conversation.tips)[number] | null>(null);
+
+  useEffect(() => {
+    const newest = conversation.tips.at(-1);
+    if (!newest) return;
+    setLatestTip(newest);
+    const timer = setTimeout(() => setLatestTip(null), 4000);
+    return () => clearTimeout(timer);
+  }, [conversation.tips]);
 
   /**
    * Attach streams imperatively.
@@ -289,6 +303,20 @@ export default function DiscoverPage() {
           </div>
         )}
 
+        {/*
+          The recipient's consent gate for a time offer. Rendered over the video, but it
+          never blocks the control bar underneath — Next, report and block stay reachable
+          while it is on screen, which is the whole point of the design.
+        */}
+        {conversation.pendingOffer && (
+          <TipOfferPrompt
+            offer={conversation.pendingOffer}
+            onRespond={conversation.respondToOffer}
+          />
+        )}
+
+        {latestTip && <TipToast key={latestTip.tipId} tip={latestTip} />}
+
         {/* Local preview */}
         {(inCall || searching || state === SessionState.READY) && (
           <div className="absolute bottom-28 right-4 h-40 w-28 overflow-hidden rounded border border-white/15 bg-surface shadow-2xl sm:h-48 sm:w-36">
@@ -377,6 +405,14 @@ export default function DiscoverPage() {
           </Button>
 
           <ControlButton
+            label="Send a tip"
+            onClick={() => setTipOpen(true)}
+            disabled={!inCall || !partner}
+          >
+            <Gift className="h-5 w-5" />
+          </ControlButton>
+
+          <ControlButton
             label="Report this person"
             tone="danger"
             onClick={() => setReportOpen(true)}
@@ -395,6 +431,15 @@ export default function DiscoverPage() {
           </ControlButton>
         </div>
       </div>
+
+      {tipOpen && partner && (
+        <TipDialog
+          partnerName={partner.displayName ?? partner.username}
+          balance={conversation.tokenBalance}
+          onClose={() => setTipOpen(false)}
+          onSend={(tokens, options) => conversation.sendTip(tokens, options)}
+        />
+      )}
 
       {reportOpen && partner && (
         <ReportDialog

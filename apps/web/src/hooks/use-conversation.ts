@@ -16,6 +16,7 @@ import {
   type RealtimeError,
   type ServerToClientEvents,
   SessionState,
+  type TipReceivedPayload,
 } from '@trip2world/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
@@ -90,6 +91,16 @@ export function useConversation() {
   const [queueConfirmed, setQueueConfirmed] = useState(false);
   const [searchingNow, setSearchingNow] = useState<number | null>(null);
   const [connected, setConnected] = useState(false);
+
+  /**
+   * Tips exchanged during this call, plus any offer awaiting an answer.
+   *
+   * `pendingOffer` is only ever set for the RECIPIENT. The sender does not get a prompt,
+   * because there is nothing for them to decide — they already spent the tokens.
+   */
+  const [tips, setTips] = useState<TipReceivedPayload[]>([]);
+  const [pendingOffer, setPendingOffer] = useState<TipReceivedPayload | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
 
   /** Camera controls. Both are absent on most desktops, so the UI hides rather than disables. */
   const [zoom, setZoomState] = useState<ZoomCapability | null>(null);
@@ -170,6 +181,11 @@ export function useConversation() {
     setSharedInterests([]);
     setMessages([]);
     setQuality('UNKNOWN');
+
+    // Tips belong to the conversation that just ended. Carrying an unanswered offer into
+    // the next call would ask someone to accept time from a stranger they never met.
+    setTips([]);
+    setPendingOffer(null);
   }, [clearTimers]);
 
   /* ------------------------------------------------------------------ */
@@ -490,6 +506,33 @@ export function useConversation() {
     }
   }, [switchingCamera]);
 
+  /**
+   * Send a tip to the person on the other side.
+   *
+   * `offeredSeconds` makes it an offer of extra time — which the recipient may decline.
+   * The tokens transfer either way, and nothing here can disable their Next button.
+   */
+  const sendTip = useCallback(
+    (tokens: number, options: { message?: string; offeredSeconds?: number } = {}) => {
+      const currentMatch = matchIdRef.current;
+      if (!currentMatch) return;
+
+      socketRef.current?.emit('tip:send', {
+        matchId: currentMatch,
+        tokens,
+        ...(options.message ? { message: options.message } : {}),
+        ...(options.offeredSeconds ? { offeredSeconds: options.offeredSeconds } : {}),
+      });
+    },
+    [],
+  );
+
+  /** Answer a time offer. Declining costs nothing — the tokens have already landed. */
+  const respondToOffer = useCallback((tipId: string, accepted: boolean) => {
+    socketRef.current?.emit('tip:respond', { tipId, accepted });
+    setPendingOffer((current) => (current?.tipId === tipId ? null : current));
+  }, []);
+
   const sendMessage = useCallback((body: string) => {
     const currentMatch = matchIdRef.current;
     if (!currentMatch || !body.trim()) return;
@@ -663,6 +706,19 @@ export function useConversation() {
         setMessages((previous) => [...previous, message]);
       });
 
+      socket.on('tip:received', (tip) => {
+        setTips((previous) => [...previous, tip]);
+
+        // Only the recipient is asked to decide, and only when time was actually offered.
+        if (!tip.isOwn && tip.offeredSeconds !== null) setPendingOffer(tip);
+      });
+
+      socket.on('tip:offer-resolved', ({ tipId }) => {
+        setPendingOffer((current) => (current?.tipId === tipId ? null : current));
+      });
+
+      socket.on('tokens:balance', ({ balance }) => setTokenBalance(balance));
+
       socket.on('account:restricted', (payload) => {
         closePeer();
         setError({
@@ -786,6 +842,9 @@ export function useConversation() {
     zoom,
     canSwitchCamera,
     switchingCamera,
+    tips,
+    pendingOffer,
+    tokenBalance,
 
     localStream: localStreamRef,
     remoteStream: remoteStreamRef,
@@ -799,6 +858,8 @@ export function useConversation() {
     toggleMicrophone,
     setZoom,
     switchCamera,
+    sendTip,
+    respondToOffer,
     sendMessage,
     reportPartner,
     blockPartner,

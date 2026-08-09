@@ -84,6 +84,35 @@ async function seedFeatureFlags() {
   process.stdout.write(`  feature flags:  ${FEATURE_FLAGS.length} ensured\n`);
 }
 
+/**
+ * Token packages.
+ *
+ * Prices are in minor units (cents) so nothing ever touches a float. The larger packs
+ * carry a better per-token rate, which is the standard shape and gives people a reason
+ * to buy more than the minimum.
+ *
+ * Amounts here are a sensible starting point, not a recommendation — an operator should
+ * set them from the admin panel to suit their market.
+ */
+const TOKEN_PACKAGES = [
+  { slug: 'starter', tokens: 100, priceCents: 199, currency: 'EUR', label: null, sortOrder: 10 },
+  { slug: 'popular', tokens: 550, priceCents: 999, currency: 'EUR', label: 'Most popular', sortOrder: 20 },
+  { slug: 'plus', tokens: 1200, priceCents: 1999, currency: 'EUR', label: null, sortOrder: 30 },
+  { slug: 'pro', tokens: 3200, priceCents: 4999, currency: 'EUR', label: 'Best value', sortOrder: 40 },
+];
+
+async function seedTokenPackages() {
+  for (const pkg of TOKEN_PACKAGES) {
+    await prisma.tokenPackage.upsert({
+      where: { slug: pkg.slug },
+      create: pkg,
+      // Never overwrite pricing an operator has changed — only ensure the row exists.
+      update: {},
+    });
+  }
+  process.stdout.write(`  token packs:    ${TOKEN_PACKAGES.length} ensured\n`);
+}
+
 async function seedSystemSettings() {
   const defaults: { key: string; value: unknown; description: string }[] = [
     { key: 'minimum_age', value: 18, description: 'Minimum age required to register.' },
@@ -221,6 +250,7 @@ async function main() {
 
   await seedInterests();
   await seedFeatureFlags();
+  await seedTokenPackages();
   await seedSystemSettings();
 
   const wantsDevUsers = process.env.SEED_DEV_USERS === 'true';
