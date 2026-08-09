@@ -85,7 +85,14 @@ if [[ -n "$APP_URL" ]]; then
   # a tunnel can carry one and not the other. Testing only polling is how a browser-only
   # failure hid behind three green checks: every curl passed, every user saw "Cannot
   # reach Trip2World", and the realtime logs were silent because nothing arrived.
-  upgrade="$(curl -sS -i --max-time 10 \
+  # `--http1.1` is not optional here.
+  #
+  # curl negotiates HTTP/2 with any modern TLS endpoint, and Cloudflare offers it. But
+  # the `Connection: Upgrade` handshake does not exist in HTTP/2 — those headers are
+  # illegal there — so the request is rejected with a 400 that says nothing about
+  # WebSocket support. The first version of this check did exactly that and reported a
+  # perfectly healthy tunnel as broken.
+  upgrade="$(curl -sS -i --http1.1 --max-time 10 \
     -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
     -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: ZGlhZ25vc2Uxc2NyaXB0MQ==' \
     "${APP_URL}/rt/?EIO=4&transport=websocket" 2>/dev/null | head -n1)"
@@ -94,8 +101,8 @@ if [[ -n "$APP_URL" ]]; then
     ok "internet → WebSocket upgrade accepted"
   else
     bad "internet → WebSocket upgrade refused. Got: ${upgrade:-<nothing>}"
-    warn "Polling works but the upgrade does not. Calls will fall back to long polling"
-    warn "at best. Check that the tunnel and any proxy in front allow WebSockets."
+    warn "Polling works but the upgrade does not. Calls fall back to long polling, which"
+    warn "works but is worse. Check the tunnel and any proxy in front allow WebSockets."
   fi
 fi
 
@@ -132,9 +139,25 @@ else
   ok "TURN_EXTERNAL_IP=$TURN_EXTERNAL_IP"
 fi
 
-# coturn runs with network_mode: host, so it binds host ports directly.
-if ss -ulnp 2>/dev/null | grep -q ":${TURN_PORT}\b"; then
-  ok "something is listening on ${TURN_PORT}/udp"
+# coturn runs with network_mode: host, so it binds host ports directly. It binds one
+# socket per interface, which on a Docker host is dozens of lines — what matters is
+# whether one of them is the PUBLIC address, because a bind to only 127.0.0.1 and the
+# bridge networks looks identical to a healthy one in a line count.
+#
+# Matching on the local-address column rather than the whole line: `\b` after the port
+# reported a bound server as unbound, because the boundary did not fall where the
+# earlier version assumed.
+listening="$(ss -ulnp 2>/dev/null | awk '{print $5}' | grep -c ":${TURN_PORT}$")"
+
+if [[ "$listening" -gt 0 ]]; then
+  ok "coturn is listening on ${TURN_PORT}/udp ($listening sockets)"
+  if [[ -n "$TURN_EXTERNAL_IP" ]]; then
+    if ss -ulnp 2>/dev/null | awk '{print $5}' | grep -q "^${TURN_EXTERNAL_IP}:${TURN_PORT}$"; then
+      ok "  including the public address ${TURN_EXTERNAL_IP}"
+    else
+      bad "  but NOT on ${TURN_EXTERNAL_IP} — only loopback and container bridges"
+    fi
+  fi
 else
   bad "nothing is listening on ${TURN_PORT}/udp — coturn is not bound"
   warn "  docker compose logs coturn --tail 40"
