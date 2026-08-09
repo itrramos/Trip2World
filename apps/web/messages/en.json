@@ -147,6 +147,7 @@
     "tokensLabel": "tokens — open token settings",
     "settings": "Settings",
     "home": "Home",
+    "connections": "Connections",
     "tryAgain": "Try again",
     "backToHome": "Back to home",
 
@@ -357,6 +358,24 @@
       "ADJUSTMENT": "Adjustment",
       "PROMO": "Promotional credit"
     }
+  },
+
+  "connections": {
+    "title": "Connections",
+    "subtitle": "People you agreed to stay in touch with after a conversation.",
+    "loadFailed": "Could not load your connections.",
+    "requestsTitle": "Requests",
+    "requestsEmpty": "No pending requests.",
+    "accept": "Accept",
+    "decline": "Decline",
+    "expires": "Expires {date}",
+    "connectedOn": "Connected {date}",
+    "remove": "Remove",
+    "removeConfirmTitle": "Remove {name}?",
+    "removeConfirmBody": "You will both stop being connected. Either of you can send a new request later.",
+    "emptyTitle": "No connections yet",
+    "emptyBody": "During a conversation, use the connect button to ask someone to stay in touch. They have to agree.",
+    "privacyOff": "You have connection requests turned off, so nobody can send you one. Change it in Privacy settings."
   },
 
   "grants": {

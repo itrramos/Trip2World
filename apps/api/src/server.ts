@@ -18,6 +18,7 @@ import { authRoutes } from './routes/auth.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { iceRoutes } from './routes/ice.routes.js';
 import { profileRoutes } from './routes/profile.routes.js';
+import { connectionRoutes } from './routes/connections.routes.js';
 import { safetyRoutes } from './routes/safety.routes.js';
 import { tokenRoutes } from './routes/tokens.routes.js';
 import { CampaignsService } from '@trip2world/database';
@@ -282,6 +283,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await app.register(iceRoutes, { prefix: '/api/v1/ice' });
   await app.register(profileRoutes, { prefix: '/api/v1/profile' });
   await app.register(safetyRoutes, { prefix: '/api/v1' });
+  await app.register(connectionRoutes, { prefix: '/api/v1' });
   await app.register(tokenRoutes, { prefix: '/api/v1/tokens' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
 

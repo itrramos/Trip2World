@@ -20,6 +20,7 @@ import {
   Signal,
   Sparkles,
   SwitchCamera,
+  Users,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
@@ -158,6 +159,20 @@ export default function DiscoverPage() {
             {conversation.tokenBalance === null ? '—' : conversation.tokenBalance.toLocaleString()}
           </span>
           <span className="sr-only">{t('tokensLabel')}</span>
+        </Link>
+
+        {/*
+          Connections has to be reachable from here, because here is where they are made.
+          Two pages have already shipped in this project with working code and no route
+          to them — the settings screen and the blocked list — and both times the bug was
+          invisible to every test that did not use a browser.
+        */}
+        <Link
+          href="/connections"
+          aria-label={t('connections')}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10"
+        >
+          <Users className="h-4 w-4" aria-hidden />
         </Link>
 
         <Link

@@ -147,6 +147,7 @@
     "tokensLabel": "tokens — abrir definições de tokens",
     "settings": "Definições",
     "home": "Início",
+    "connections": "Ligações",
     "tryAgain": "Tentar novamente",
     "backToHome": "Voltar ao início",
 
@@ -363,6 +364,24 @@
       "ADJUSTMENT": "Ajuste",
       "PROMO": "Crédito promocional"
     }
+  },
+
+  "connections": {
+    "title": "Ligações",
+    "subtitle": "Pessoas com quem combinaste manter o contacto depois de uma conversa.",
+    "loadFailed": "Não foi possível carregar as tuas ligações.",
+    "requestsTitle": "Pedidos",
+    "requestsEmpty": "Não há pedidos pendentes.",
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "expires": "Expira a {date}",
+    "connectedOn": "Ligados desde {date}",
+    "remove": "Remover",
+    "removeConfirmTitle": "Remover {name}?",
+    "removeConfirmBody": "Deixam de estar ligados. Qualquer um de vocês pode enviar um novo pedido mais tarde.",
+    "emptyTitle": "Ainda não tens ligações",
+    "emptyBody": "Durante uma conversa, usa o botão de ligação para pedires a alguém para manterem o contacto. A outra pessoa tem de aceitar.",
+    "privacyOff": "Tens os pedidos de contacto desativados, por isso ninguém te pode enviar um. Podes alterar isso nas definições de Privacidade."
   },
 
   "grants": {

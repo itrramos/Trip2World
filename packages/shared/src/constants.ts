@@ -81,6 +81,16 @@ export const PASSWORD_RESET_TTL_SECONDS = 60 * 60;
 /** Grace period between a deletion request and irreversible erasure. */
 export const ACCOUNT_DELETION_GRACE_DAYS = 14;
 
+/**
+ * How long an unanswered connection request stands.
+ *
+ * Requests expire so that an inbox cannot only grow — one that does is an inbox people
+ * stop opening, which turns the feature into a way to be ignored rather than a way to
+ * stay in touch. Fourteen days is long enough that someone who checks weekly still sees
+ * it, and short enough that a stale request is not a permanent claim on attention.
+ */
+export const CONNECTION_REQUEST_TTL_DAYS = 14;
+
 /* --- Rate limits ---------------------------------------------------------- */
 
 export interface RateLimitRule {
