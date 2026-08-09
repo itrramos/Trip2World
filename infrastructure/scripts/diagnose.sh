@@ -26,7 +26,11 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-get() { grep -E "^$1=" .env | head -n1 | cut -d= -f2- ; }
+# `tr -d '\r'` is not paranoia. `.env` gets edited through the CasaOS file manager and
+# over SFTP from Windows, both of which can save CRLF. A trailing carriage return is
+# invisible in every `grep` and `echo`, and silently breaks any comparison against the
+# value — which is why a correctly-bound TURN address kept reporting as missing.
+get() { grep -E "^$1=" .env | head -n1 | cut -d= -f2- | tr -d '\r' ; }
 
 APP_URL="$(get APP_URL)"
 APP_DOMAIN="$(get APP_DOMAIN)"
@@ -62,8 +66,13 @@ for svc in web admin api realtime worker; do
     warn "$svc built before build stamping — rebuild to make this checkable"
   elif [[ "$running" == "$HEAD_SHA" ]]; then
     ok "$svc is $running"
+  elif [[ -z "$(git diff --name-only "$running" HEAD -- apps packages 2>/dev/null)" ]]; then
+    # Behind HEAD, but nothing under apps/ or packages/ changed in between — the
+    # difference is scripts or documentation. Rebuilding would produce an identical
+    # image, so reporting this as a failure trains you to ignore the check.
+    ok "$svc is $running (behind $HEAD_SHA, but no application code changed since)"
   else
-    bad "$svc is running $running, repository is at $HEAD_SHA"
+    bad "$svc is running $running, repository is at $HEAD_SHA — application code differs"
     warn "  ./infrastructure/scripts/deploy.sh"
   fi
 done
