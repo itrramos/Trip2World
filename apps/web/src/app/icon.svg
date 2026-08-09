@@ -9,6 +9,12 @@
 
     The plate stays. A transparent line-art icon disappears against a dark tab strip in
     one theme and a light one in the other; a filled rounded square reads in both.
+
+    This file is the ONLY /icon.svg. Next serves `app/icon.svg` at that path and injects
+    the <link rel="icon"> automatically, which means a `public/icon.svg` alongside it
+    claims the same URL — and Next resolves that collision by serving neither, so the
+    favicon AND the manifest icon 404 together. There was one here; it is gone. The web
+    manifest points at this file.
   -->
   <defs>
     <linearGradient id="t2w-favicon" x1="0" y1="0" x2="1" y2="1">

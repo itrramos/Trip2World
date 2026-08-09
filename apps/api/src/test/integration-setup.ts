@@ -145,11 +145,29 @@ export async function resetTestData(prisma: PrismaClient, redis: Redis): Promise
   if (keys.length > 0) await redis.del(...keys);
 }
 
+/**
+ * Turn a readable test label into a legal username.
+ *
+ * `USERNAME_PATTERN` is `[a-z0-9]` with `_` between, and every test in this suite names
+ * its users descriptively — `mod-a`, `promo-race-3`, `offender-b`. Those hyphens make
+ * the username invalid, registration returns 400, and the helper throws before the test
+ * body runs. The failure then points at whatever the test was actually checking rather
+ * than at the fixture, which is a long way to walk for a punctuation problem.
+ *
+ * Normalising here rather than renaming the call sites keeps the labels readable and
+ * means the next test to use a hyphen does not rediscover this.
+ */
+function usernameFor(suffix: string): string {
+  const slug = suffix.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  // Truncation can leave a trailing separator, which the pattern also rejects.
+  return `u_${slug}`.slice(0, 24).replace(/_+$/, '');
+}
+
 /** A registration payload that satisfies every validation rule. */
 export function registration(suffix: string) {
   return {
     email: `user-${suffix}@integration.test`,
-    username: `user_${suffix}`.toLowerCase().slice(0, 24),
+    username: usernameFor(suffix),
     password: 'a-perfectly-fine-passphrase',
     confirmPassword: 'a-perfectly-fine-passphrase',
     birthDate: '1995-06-15',
