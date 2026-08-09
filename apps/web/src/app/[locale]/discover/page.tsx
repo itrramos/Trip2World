@@ -20,12 +20,15 @@ import {
   Signal,
   Sparkles,
   SwitchCamera,
+  UserCheck,
+  UserPlus,
   Users,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
+import { api, ApiRequestError } from '@/lib/api';
 import { MEDIA_ERROR_RETRYABLE } from '@/lib/media';
 import { GrantNotice } from '@/components/grant-notice';
 import { useRequireAuth } from '@/components/session-provider';
@@ -33,6 +36,7 @@ import { TipDialog, TipOfferPrompt, TipToast } from '@/components/tips';
 import { useConversation } from '@/hooks/use-conversation';
 import { Button, cn } from '@/components/ui';
 import { Link } from '@/i18n/navigation';
+import { routing } from '@/i18n/routing';
 
 /** Four escalating hints, chosen by how long the search has been running. */
 const SEARCH_HINT_COUNT = 4;
@@ -62,6 +66,40 @@ export default function DiscoverPage() {
   const [blockOpen, setBlockOpen] = useState(false);
   const [tipOpen, setTipOpen] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
+
+  /** Connection request state for THIS conversation. Reset whenever the partner does. */
+  const [connectState, setConnectState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setConnectState('idle');
+    setConnectError(null);
+  }, [conversation.matchId]);
+
+  async function requestConnection() {
+    if (!partner || connectState !== 'idle') return;
+
+    setConnectState('sending');
+    setConnectError(null);
+
+    try {
+      await api.post('/v1/connections/requests', {
+        userId: partner.id,
+        matchId: conversation.matchId,
+      });
+      setConnectState('sent');
+    } catch (caught) {
+      setConnectState('idle');
+      // FORBIDDEN is the recipient having requests switched off — a real answer worth
+      // showing, and different from a failure.
+      setConnectError(
+        caught instanceof ApiRequestError && caught.error.code === 'FORBIDDEN'
+          ? t('controls.connectDeclinedSetting')
+          : t('controls.connectFailed'),
+      );
+      setTimeout(() => setConnectError(null), 4000);
+    }
+  }
 
   /** Most recent tip, shown briefly as a toast then cleared. */
   const [latestTip, setLatestTip] = useState<(typeof conversation.tips)[number] | null>(null);
@@ -130,36 +168,29 @@ export default function DiscoverPage() {
   return (
     <main className="relative flex min-h-dvh flex-col bg-black">
       {/*
-        Top bar. Previously there was no route out of this page at all — Settings, the
-        blocked list and the token balance were all unreachable once you were here.
-        Kept minimal so it does not compete with the video.
+        Top bar.
+
+        Every link here destroys a live conversation if followed in the same tab: the
+        socket, the peer connection and the media streams all belong to this component,
+        so unmounting it hangs up. Adding a Connections icon made that obvious, but Home,
+        Settings and the token balance had the same effect and had it silently.
+
+        During a call they open in a new tab instead. Someone checking their balance
+        before sending a tip, or glancing at their connections, should not lose the
+        person they are talking to — and a confirmation dialog would only make the loss
+        expected rather than avoidable.
       */}
       <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
-        {/*
-          A way out that is not "sign out".
-
-          This page had no route home at all, so the only visible way to leave it was the
-          browser's back button — and a user who wants to re-read the guidelines or the
-          Terms had nowhere to go. Leaving Discover must not look like leaving the account.
-        */}
-        <Link
-          href="/"
-          aria-label={t('home')}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10"
-        >
+        <TopBarLink href="/" label={t('home')} inCall={inCall}>
           <Home className="h-4 w-4" aria-hidden />
-        </Link>
+        </TopBarLink>
 
-        <Link
-          href="/settings/tokens"
-          className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-3 py-1.5 text-xs backdrop-blur transition-colors hover:bg-white/10"
-        >
+        <TopBarLink href="/settings/tokens" label={t('tokensLabel')} inCall={inCall} wide>
           <Coins className="h-3.5 w-3.5 text-brand" aria-hidden />
           <span className="tabular-nums">
             {conversation.tokenBalance === null ? '—' : conversation.tokenBalance.toLocaleString()}
           </span>
-          <span className="sr-only">{t('tokensLabel')}</span>
-        </Link>
+        </TopBarLink>
 
         {/*
           Connections has to be reachable from here, because here is where they are made.
@@ -167,21 +198,13 @@ export default function DiscoverPage() {
           to them — the settings screen and the blocked list — and both times the bug was
           invisible to every test that did not use a browser.
         */}
-        <Link
-          href="/connections"
-          aria-label={t('connections')}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10"
-        >
+        <TopBarLink href="/connections" label={t('connections')} inCall={inCall}>
           <Users className="h-4 w-4" aria-hidden />
-        </Link>
+        </TopBarLink>
 
-        <Link
-          href="/settings"
-          aria-label={t('settings')}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10"
-        >
+        <TopBarLink href="/settings" label={t('settings')} inCall={inCall}>
           <Settings className="h-4 w-4" aria-hidden />
-        </Link>
+        </TopBarLink>
       </div>
 
       {/* ── Remote video / stage ─────────────────────────────────────── */}
@@ -394,6 +417,16 @@ export default function DiscoverPage() {
 
         {latestTip && <TipToast key={latestTip.tipId} tip={latestTip} />}
 
+        {/* A refused connection request needs an answer on screen; the button latching
+            back to its idle state would otherwise look like nothing happened. */}
+        {connectError && (
+          <div className="pointer-events-none absolute left-1/2 top-32 z-20 -translate-x-1/2">
+            <p className="rounded-full border border-warning/40 bg-warning/15 px-4 py-2 text-sm text-warning backdrop-blur">
+              {connectError}
+            </p>
+          </div>
+        )}
+
         {/* Local preview */}
         {(inCall || searching || state === SessionState.READY) && (
           <div className="absolute bottom-28 right-4 h-40 w-28 overflow-hidden rounded border border-white/15 bg-surface shadow-2xl sm:h-48 sm:w-36">
@@ -493,6 +526,31 @@ export default function DiscoverPage() {
             <Gift className="h-5 w-5" />
           </ControlButton>
 
+          {/*
+            Ask to stay in touch.
+
+            Deliberately fire-and-forget rather than a prompt on the other person's
+            screen. A live "do you want to keep talking to me?" during a call is a
+            question that is hard to say no to with the asker watching your face — which
+            is exactly the pressure this product should not manufacture. The request
+            lands in their Connections page, and they answer it later, alone.
+
+            The button latches once sent, so a nervous double-tap does not read as
+            pestering.
+          */}
+          <ControlButton
+            label={connectState === 'sent' ? t('controls.connectSent') : t('controls.connect')}
+            active={connectState === 'sent' ? true : undefined}
+            onClick={() => void requestConnection()}
+            disabled={!inCall || !partner || connectState !== 'idle'}
+          >
+            {connectState === 'sent' ? (
+              <UserCheck className="h-5 w-5" />
+            ) : (
+              <UserPlus className="h-5 w-5" />
+            )}
+          </ControlButton>
+
           <ControlButton
             label={t('controls.block')}
             tone="danger"
@@ -572,6 +630,63 @@ export default function DiscoverPage() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * A top-bar link that does not hang up on you.
+ *
+ * `target="_blank"` only while a conversation is live. Outside a call it is an ordinary
+ * client-side navigation, because opening new tabs for no reason is its own annoyance.
+ *
+ * `rel="noopener"` is not optional on a target-blank link: without it the opened page
+ * gets a `window.opener` handle back to this one and can navigate it anywhere.
+ */
+function TopBarLink({
+  href,
+  label,
+  inCall,
+  wide = false,
+  children,
+}: {
+  href: string;
+  label: string;
+  inCall: boolean;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  const locale = useLocale();
+  const className = cn(
+    'flex items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10',
+    wide ? 'gap-1.5 px-3 py-1.5 text-xs' : 'h-8 w-8',
+  );
+
+  if (inCall) {
+    /**
+     * A plain `<a>` bypasses the locale-aware Link, so the prefix has to be added by
+     * hand — otherwise a Portuguese user opens the English page. `as-needed` means the
+     * default locale carries no prefix at all.
+     */
+    const prefixed = locale === routing.defaultLocale ? href : `/${locale}${href}`;
+
+    return (
+      <a
+        href={prefixed}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={label}
+        title={label}
+        className={className}
+      >
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} aria-label={label} title={label} className={className}>
+      {children}
+    </Link>
+  );
+}
 
 function StageMessage({
   title,
