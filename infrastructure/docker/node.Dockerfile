@@ -64,6 +64,16 @@ FROM base AS runner
 ARG APP
 ENV APP=${APP}
 ENV NODE_ENV=production
+
+# The commit this image was built from.
+#
+# "Is what is running actually what is committed?" has been the wrong answer twice now —
+# once when a bundle still held an old hostname, once when a client fix had been pulled
+# but not rebuilt. Both times the repository looked correct and the deployment did not,
+# and there was no way to tell from the outside. `diagnose.sh` compares this against
+# `git rev-parse HEAD`, so the question is answered in one line instead of inferred.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
 # Node does not read cgroup memory limits by default; without this, a container memory
 # cap produces an OOM kill instead of a garbage collection.
 ENV NODE_OPTIONS="--max-old-space-size=512"

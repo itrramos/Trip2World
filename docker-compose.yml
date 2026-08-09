@@ -114,6 +114,7 @@ services:
       dockerfile: infrastructure/docker/next.Dockerfile
       args:
         APP: web
+        GIT_SHA: ${GIT_SHA:-unknown}
         # Next.js inlines NEXT_PUBLIC_* at build time, so these must be build args
         # rather than runtime environment — setting them only at runtime is a
         # classic cause of a production bundle still pointing at localhost.
@@ -140,6 +141,7 @@ services:
       dockerfile: infrastructure/docker/next.Dockerfile
       args:
         APP: admin
+        GIT_SHA: ${GIT_SHA:-unknown}
         NEXT_PUBLIC_APP_URL: ${ADMIN_URL}
         # Admin talks to the API on its OWN origin, so its session cookie stays
         # host-scoped and is never sent by the public web app.
@@ -164,6 +166,7 @@ services:
       dockerfile: infrastructure/docker/node.Dockerfile
       args:
         APP: api
+        GIT_SHA: ${GIT_SHA:-unknown}
     # Tagged explicitly so the `migrate` service can reuse this exact image instead of
     # building its own copy from the same Dockerfile. Two build blocks producing what is
     # meant to be the same image is how they silently drift — rebuild one, forget the
@@ -210,6 +213,7 @@ services:
       dockerfile: infrastructure/docker/node.Dockerfile
       args:
         APP: realtime
+        GIT_SHA: ${GIT_SHA:-unknown}
     <<: [*restart, *logging]
     environment:
       <<: *backend-env
@@ -234,6 +238,7 @@ services:
       dockerfile: infrastructure/docker/node.Dockerfile
       args:
         APP: worker
+        GIT_SHA: ${GIT_SHA:-unknown}
     <<: [*restart, *logging]
     environment:
       <<: *backend-env

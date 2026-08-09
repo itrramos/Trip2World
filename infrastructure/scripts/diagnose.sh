@@ -48,6 +48,47 @@ for svc in postgres redis api realtime web admin caddy coturn worker; do
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
+head_ "Is the running code the committed code?"
+
+# The question every other check silently assumes the answer to. A container built from
+# an older commit passes every connectivity test here and still serves the old behaviour,
+# because client code and NEXT_PUBLIC_* are compiled in at build time.
+HEAD_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+echo "      repository at ${HEAD_SHA}"
+
+for svc in web admin api realtime worker; do
+  running="$(docker compose exec -T "$svc" printenv GIT_SHA 2>/dev/null | tr -d '\r\n')"
+  if [[ -z "$running" || "$running" == unknown ]]; then
+    warn "$svc built before build stamping — rebuild to make this checkable"
+  elif [[ "$running" == "$HEAD_SHA" ]]; then
+    ok "$svc is $running"
+  else
+    bad "$svc is running $running, repository is at $HEAD_SHA"
+    warn "  ./infrastructure/scripts/deploy.sh"
+  fi
+done
+
+# ─────────────────────────────────────────────────────────────────────────────
+head_ "HTTP API"
+
+# Never tested before, and the app depends on it for every page: the session boot calls
+# /v1/auth/refresh, and a failure there leaves the UI stuck deciding whether anyone is
+# signed in — which looks like a dozen unrelated bugs.
+if [[ -n "$APP_URL" ]]; then
+  # 401 is the CORRECT answer without a refresh cookie. What matters is that the API
+  # answered at all; a 502 or a hang is the failure.
+  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 \
+    -X POST "${APP_URL}/api/v1/auth/refresh" 2>/dev/null || echo 000)"
+
+  case "$code" in
+    401|400) ok "POST /api/v1/auth/refresh answered $code (expected without a cookie)" ;;
+    000)     bad "POST /api/v1/auth/refresh did not respond — the browser would hang here" ;;
+    502|503|504) bad "POST /api/v1/auth/refresh returned $code — the API is not reachable through Caddy" ;;
+    *)       ok "POST /api/v1/auth/refresh answered $code" ;;
+  esac
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 head_ "Realtime, from the inside out"
 
 # The Socket.IO handshake. A healthy engine.io reply starts with `0{"sid":`. Anything

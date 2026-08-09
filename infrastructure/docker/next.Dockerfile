@@ -69,6 +69,13 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# The commit this image — and therefore the browser bundle inside it — was built from.
+# See the same block in node.Dockerfile. This one matters more: NEXT_PUBLIC_* values and
+# all client code are compiled in, so a pulled-but-not-rebuilt web image serves the old
+# behaviour with no outward sign of it.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+
 RUN addgroup --system --gid 1001 nextjs \
  && adduser  --system --uid 1001 --ingroup nextjs nextjs
 
