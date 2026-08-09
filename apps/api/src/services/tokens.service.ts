@@ -1,6 +1,5 @@
 import { TokenError, TokenErrorCode, TokensService } from '@trip2world/database';
-import { AppError } from '../errors.js';
-import { Errors } from '../errors.js';
+import { Errors, type AppError } from '../errors.js';
 
 /**
  * The ledger itself lives in `@trip2world/database` because the realtime server needs it

@@ -3,7 +3,7 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_TTL_SECONDS,
 } from '@trip2world/shared';
-import type { AccessTokenClaims, RefreshTokenClaims } from '@trip2world/types';
+import type { AccessTokenClaims } from '@trip2world/types';
 import { errors, jwtVerify, SignJWT } from 'jose';
 
 /**

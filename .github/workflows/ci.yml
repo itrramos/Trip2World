@@ -1,0 +1,262 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Lets a maintainer re-run after fixing an outage rather than pushing an empty commit.
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run for the same branch. Never cancel main: its
+# result is the record of whether that commit was green.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  NODE_VERSION: '22.13'
+  PNPM_VERSION: '9.15.4'
+  # Prisma needs this present to parse the schema; it never connects during `generate`.
+  DATABASE_URL: 'postgresql://trip2world:trip2world_dev@localhost:5432/trip2world?schema=public'
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Static analysis. Fast, and catches most regressions before anything is spun up.
+  # ───────────────────────────────────────────────────────────────────────────
+  static:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm must exist before setup-node, or its cache resolution finds no lockfile.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Everything downstream needs the generated Prisma client and the built packages.
+      - name: Generate Prisma client
+        run: pnpm --filter @trip2world/database generate
+
+      - name: Build packages
+        run: pnpm --filter "./packages/**" build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Integration. Real Postgres and Redis — the only place the concurrency and
+  # constraint behaviour is actually proven.
+  # ───────────────────────────────────────────────────────────────────────────
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: trip2world
+          POSTGRES_USER: trip2world
+          POSTGRES_PASSWORD: trip2world_dev
+        ports: ['5432:5432']
+        # Without a healthcheck the job races the database and fails on connection.
+        options: >-
+          --health-cmd="pg_isready -U trip2world"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm --filter "./packages/**" build
+
+      - name: Apply migrations
+        run: pnpm --filter @trip2world/database migrate:deploy
+
+      - name: Seed reference data
+        run: pnpm --filter @trip2world/database seed
+
+      - name: Integration tests
+        run: pnpm test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://trip2world:trip2world_dev@localhost:5432/trip2world?schema=public
+          TEST_REDIS_URL: redis://localhost:6379
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Application builds. Catches anything that only fails at build time — a bad
+  # Next.js config, a missing standalone trace, an unresolved workspace import.
+  # ───────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build applications
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build everything
+        run: pnpm build
+        env:
+          # Next.js inlines these at build time. Placeholders are fine here — the job is
+          # proving the build works, not producing a deployable bundle.
+          NEXT_PUBLIC_APP_URL: https://example.test
+          NEXT_PUBLIC_API_URL: https://example.test/api
+          NEXT_PUBLIC_REALTIME_URL: https://example.test
+          NEXT_PUBLIC_REALTIME_PATH: /rt
+
+      - name: Verify standalone output exists
+        # A silently-skipped standalone build is the failure mode that broke a deploy
+        # before: it only surfaces as a failing Docker COPY much later.
+        run: |
+          test -f apps/web/.next/standalone/apps/web/server.js \
+            || (echo "::error::web standalone output missing" && exit 1)
+          test -f apps/admin/.next/standalone/apps/admin/server.js \
+            || (echo "::error::admin standalone output missing" && exit 1)
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # End-to-end. Catches what unit and integration tests structurally cannot: a
+  # control that exists in code but is never rendered, a page nothing links to,
+  # a dead link. Both bugs found by hand during development were of that shape.
+  # ───────────────────────────────────────────────────────────────────────────
+  e2e:
+    name: End-to-end (smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm --filter "./packages/**" build
+
+      # Only the browser binary; --with-deps additionally installs system libraries,
+      # which the GitHub runner image already has.
+      - name: Install Chromium
+        run: pnpm --filter @trip2world/web exec playwright install chromium
+
+      # The @full suite needs api/realtime/postgres/redis and is skipped here; it is
+      # meant to be run against a deployed environment. The smoke suite needs only the
+      # web app, which the Playwright config starts itself.
+      - name: Run smoke suite
+        run: pnpm --filter @trip2world/web test:e2e --project=chromium
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Docker. Proves the images build, which typecheck and unit tests cannot.
+  # ───────────────────────────────────────────────────────────────────────────
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Only on main: a full multi-stage build of five images is slow, and PRs are already
+    # covered by the build job above.
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build node services
+        run: |
+          for app in api realtime worker; do
+            docker build \
+              -f infrastructure/docker/node.Dockerfile \
+              --build-arg APP=$app \
+              --tag trip2world/$app:ci \
+              --cache-from type=gha \
+              --cache-to type=gha,mode=max \
+              .
+          done
+
+      - name: Build Next.js applications
+        run: |
+          for app in web admin; do
+            docker build \
+              -f infrastructure/docker/next.Dockerfile \
+              --build-arg APP=$app \
+              --build-arg NEXT_PUBLIC_APP_URL=https://example.test \
+              --build-arg NEXT_PUBLIC_API_URL=https://example.test/api \
+              --build-arg NEXT_PUBLIC_REALTIME_URL=https://example.test \
+              --tag trip2world/$app:ci \
+              --cache-from type=gha \
+              --cache-to type=gha,mode=max \
+              .
+          done
+
+# NOTE: there is deliberately no deploy job. Deployment is a manual, operator-initiated
+# action — an automatic push to a live video-chat service on every merge is not something
+# to enable without an explicit decision and a rollback plan.

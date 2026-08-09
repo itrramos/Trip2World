@@ -9,7 +9,9 @@
     "start": "next start",
     "clean": "rimraf .next .turbo out",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.64.1",
@@ -28,6 +30,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "@trip2world/config": "workspace:*",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.7",

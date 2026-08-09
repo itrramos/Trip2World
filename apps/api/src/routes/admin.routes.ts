@@ -74,7 +74,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     { onRequest: [app.authenticate, requireModerator] },
     async (request, reply) => {
       const input = parse(resolveReportRefinedSchema, request.body, request.id);
-      await moderation.resolve(input, request.user!.id);
+      await moderation.resolve(input, request.user!.id, request.user!.role);
       return reply.send({ ok: true, data: { resolved: true } });
     },
   );
@@ -185,15 +185,10 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.post('/users/warn', { onRequest: [app.authenticate, requireModerator] }, async (request, reply) => {
     const input = parse(adminWarnUserSchema, request.body, request.id);
 
-    await prisma.moderationAction.create({
-      data: {
-        targetUserId: input.userId,
-        moderatorId: request.user!.id,
-        type: 'WARNING',
-        reason: input.reason,
-        notes: input.notes ?? null,
-      },
-    });
+    await moderation.warn(
+      { targetUserId: input.userId, reason: input.reason, notes: input.notes },
+      request.user!.id,
+    );
 
     return reply.send({ ok: true, data: { warned: true } });
   });
@@ -213,6 +208,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
           hours: input.hours,
         },
         request.user!.id,
+        request.user!.role,
       );
 
       return reply.send({ ok: true, data: { suspended: true } });
@@ -225,6 +221,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     await moderation.resolveDirect(
       { targetUserId: input.userId, action: 'BAN', reason: input.reason, notes: input.notes },
       request.user!.id,
+      request.user!.role,
     );
 
     return reply.send({ ok: true, data: { banned: true } });

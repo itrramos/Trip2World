@@ -44,6 +44,78 @@ export class ModerationService {
   constructor(private readonly deps: ModerationDeps) {}
 
   /**
+   * The two guards that must hold for every moderator action, wherever it originates.
+   *
+   * They used to live only in `resolveDirect`, which left the report queue as a way
+   * around both of them: file a report against an administrator, then resolve it with a
+   * ban. Anything that acts on an account goes through here now.
+   */
+  private async assertActionable(
+    targetUserId: string,
+    moderatorId: string,
+  ): Promise<{ id: string; role: string }> {
+    const target = await this.deps.prisma.user.findFirst({
+      where: { id: targetUserId, deletedAt: null },
+      select: { id: true, role: true },
+    });
+    if (!target) throw Errors.notFound('That user');
+
+    // Nobody moderates their own account — not a warning, not a dismissal of a report
+    // filed against them, nothing.
+    if (target.id === moderatorId) {
+      throw Errors.forbidden('You cannot take a moderation action on your own account.');
+    }
+
+    // A moderator must not be able to act on another moderator or an admin. Without
+    // this, a compromised moderator account can disable the people who would notice.
+    if (target.role !== 'USER') {
+      throw Errors.forbidden('Staff accounts cannot be moderated from here.');
+    }
+
+    return target;
+  }
+
+  /**
+   * Banning requires ADMIN, everywhere.
+   *
+   * `POST /admin/users/ban` is gated at the route, but the report queue is a MODERATOR
+   * surface that could also produce a ban, so the same rule is enforced on the action
+   * rather than on one of the two paths that reach it.
+   */
+  private assertMayBan(moderatorRole: string): void {
+    if (moderatorRole !== 'ADMIN' && moderatorRole !== 'SUPER_ADMIN') {
+      throw Errors.forbidden('Banning an account requires an administrator.');
+    }
+  }
+
+  /**
+   * A warning, issued without an originating report.
+   *
+   * Trivial-looking, but it is still a moderator acting on an account: it goes through
+   * the same guards and leaves the same audit trail as a suspension. The route used to
+   * write the `ModerationAction` itself, which meant a warning could be aimed at an
+   * administrator, or at the moderator's own account, and left no audit entry at all.
+   */
+  async warn(
+    input: { targetUserId: string; reason: string; notes?: string },
+    moderatorId: string,
+  ): Promise<void> {
+    const target = await this.assertActionable(input.targetUserId, moderatorId);
+
+    await this.deps.prisma.moderationAction.create({
+      data: {
+        targetUserId: target.id,
+        moderatorId,
+        type: 'WARNING',
+        reason: input.reason,
+        notes: input.notes ?? null,
+      },
+    });
+
+    await this.audit(moderatorId, 'moderation.user.warn', target.id, { reason: input.reason });
+  }
+
+  /**
    * The moderation queue.
    *
    * Child-safety and credible-threat reports are surfaced first regardless of age. A
@@ -141,7 +213,7 @@ export class ModerationService {
    * report marked ACTIONED against an account that was never actually suspended — is a
    * silent moderation failure that nobody would notice until the user reoffended.
    */
-  async resolve(input: ResolveReportInput, moderatorId: string) {
+  async resolve(input: ResolveReportInput, moderatorId: string, moderatorRole: string) {
     const { prisma, redis, logger } = this.deps;
 
     const report = await prisma.report.findUnique({
@@ -153,7 +225,12 @@ export class ModerationService {
       throw Errors.conflict('That report has already been resolved.');
     }
 
-    const targetId = report.reportedUserId;
+    // Same guards as a direct action. A report is not a licence to act on an account
+    // that a moderator could not otherwise touch — including their own.
+    const target = await this.assertActionable(report.reportedUserId, moderatorId);
+    if (input.action === 'BAN') this.assertMayBan(moderatorRole);
+
+    const targetId = target.id;
     const now = new Date();
 
     await prisma.$transaction(async (tx) => {
@@ -291,20 +368,12 @@ export class ModerationService {
       hours?: number;
     },
     moderatorId: string,
+    moderatorRole: string,
   ): Promise<void> {
     const { prisma, redis, logger } = this.deps;
 
-    const target = await prisma.user.findFirst({
-      where: { id: input.targetUserId, deletedAt: null },
-      select: { id: true, role: true },
-    });
-    if (!target) throw Errors.notFound('That user');
-
-    // A moderator must not be able to restrict another moderator or an admin. Without
-    // this, a compromised moderator account can disable the people who would notice.
-    if (target.role !== 'USER') {
-      throw Errors.forbidden('Staff accounts cannot be restricted from here.');
-    }
+    const target = await this.assertActionable(input.targetUserId, moderatorId);
+    if (input.action === 'BAN') this.assertMayBan(moderatorRole);
 
     const now = new Date();
 
@@ -367,17 +436,39 @@ export class ModerationService {
     });
   }
 
-  /** Lift a ban or suspension. */
+  /**
+   * Lift a ban or suspension.
+   *
+   * The status write is **scoped to restricted accounts**. Setting `status: 'ACTIVE'`
+   * unconditionally meant that reinstating an account which was not actually restricted
+   * would quietly promote it: a `PENDING_VERIFICATION` account would become fully active
+   * without ever confirming its email address, and a `DEACTIVATED` one would be
+   * reactivated against its owner's wishes. Both are reachable by an administrator
+   * pressing the button on the wrong row.
+   */
   async reinstate(userId: string, moderatorId: string, reason: string) {
     const { prisma } = this.deps;
     const now = new Date();
+
+    const target = await prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    if (!target) throw Errors.notFound('That user');
+
+    if (target.status !== 'BANNED' && target.status !== 'SUSPENDED') {
+      throw Errors.conflict('That account is not currently restricted.');
+    }
 
     await prisma.$transaction([
       prisma.ban.updateMany({
         where: { userId, liftedAt: null },
         data: { liftedAt: now, liftedById: moderatorId },
       }),
-      prisma.user.update({ where: { id: userId }, data: { status: 'ACTIVE' } }),
+      prisma.user.updateMany({
+        where: { id: userId, status: { in: ['BANNED', 'SUSPENDED'] } },
+        data: { status: 'ACTIVE' },
+      }),
       prisma.moderationAction.create({
         data: { targetUserId: userId, moderatorId, type: 'UNBAN', reason },
       }),

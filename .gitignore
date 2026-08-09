@@ -53,3 +53,8 @@ uploads/
 
 # Debris from a Windows standalone build with a bad outputFileTracingRoot.
 /Users/
+
+# Playwright
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/playwright/.cache/

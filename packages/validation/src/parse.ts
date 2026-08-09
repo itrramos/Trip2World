@@ -1,5 +1,5 @@
 import { type ApiError, ApiErrorCode } from '@trip2world/types';
-import { type z, ZodError } from 'zod';
+import type { z, ZodError } from 'zod';
 
 /**
  * Turn a ZodError into the field-keyed shape the API contract promises.

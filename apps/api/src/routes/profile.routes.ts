@@ -91,7 +91,10 @@ export async function profileRoutes(app: FastifyInstance): Promise<void> {
       const input = parse(updateProfileSchema, request.body, request.id);
       const userId = request.user!.id;
 
-      await prisma.profile.update({
+      // `updateMany` rather than `update`: a missing profile row means zero updates
+      // instead of a P2025 that surfaces as a 500. Nothing here creates a row, because
+      // a profile without a birth date would bypass the age gate.
+      await prisma.profile.updateMany({
         where: { userId },
         data: {
           ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),

@@ -5,6 +5,9 @@ import {
   tokenHistoryQuerySchema,
 } from '@trip2world/validation';
 import type { FastifyInstance } from 'fastify';
+// Type-only, so the Stripe SDK is still loaded lazily at the call site — a deployment
+// that does not sell tokens never pulls it into the runtime bundle.
+import type { Stripe } from 'stripe';
 import type { z } from 'zod';
 import { AppError, Errors } from '../errors.js';
 import { TokensService } from '../services/tokens.service.js';
@@ -158,7 +161,7 @@ export async function tokenRoutes(app: FastifyInstance): Promise<void> {
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(config.STRIPE_SECRET_KEY);
 
-      let event: import('stripe').Stripe.Event;
+      let event: Stripe.Event;
       try {
         event = stripe.webhooks.constructEvent(raw, signature, config.STRIPE_WEBHOOK_SECRET);
       } catch (error) {

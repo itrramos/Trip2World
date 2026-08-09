@@ -183,11 +183,35 @@ export async function safetyRoutes(app: FastifyInstance): Promise<void> {
       });
       if (!target) throw Errors.notFound('That user');
 
+      /**
+       * A report may cite a conversation, but only one the reporter was actually in.
+       *
+       * An unchecked `matchId` lets someone attach an unrelated conversation to a report,
+       * putting two uninvolved accounts in front of a moderator as if they were the
+       * subject. The id is dropped rather than the request rejected — the report itself
+       * is still worth filing, and a stale match id is a plausible client bug.
+       */
+      let matchId: string | null = null;
+      if (input.matchId) {
+        const participated = await prisma.match.findFirst({
+          where: {
+            id: input.matchId,
+            participants: { some: { userId } },
+          },
+          select: { id: true },
+        });
+        if (participated) {
+          matchId = participated.id;
+        } else {
+          request.log.warn({ userId, matchId: input.matchId }, 'Report cited a foreign match id');
+        }
+      }
+
       const report = await prisma.report.create({
         data: {
           reporterId: userId,
           reportedUserId: target.id,
-          matchId: input.matchId,
+          matchId,
           category: input.category as never,
           details: input.details ?? null,
         },
@@ -231,12 +255,14 @@ export async function safetyRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
-   * Everyone this user cannot be matched with, merged from both directions.
+   * How many accounts this user cannot be matched with, counting both directions.
    *
-   * Returns ids only. The client uses it to grey out actions; revealing WHO blocked you
-   * would be the harassment vector the list endpoint above avoids.
+   * Deliberately a count and not a list. The merged set includes people who blocked
+   * *this* user, and returning those ids would hand someone the exact list of accounts
+   * avoiding them — the harassment vector `GET /blocks` is careful to avoid. The number
+   * alone is enough for the settings screen to explain why matches are scarce.
    */
-  app.get('/blocks/ids', { onRequest: [app.authenticate] }, async (request, reply) => {
+  app.get('/blocks/count', { onRequest: [app.authenticate] }, async (request, reply) => {
     const ids = await getBlockedUserIds(request.user!.id, prisma);
     return reply.send({ ok: true, data: { count: ids.length } });
   });

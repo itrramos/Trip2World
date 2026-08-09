@@ -807,6 +807,12 @@ export function buildRealtimeServer(deps: RealtimeServerDeps): RealtimeServer {
      */
     socket.on('tip:respond', (payload, ack) => {
       void (async () => {
+        // Cheap per-call limit. Answering an offer is bounded by how many arrive, but an
+        // unlimited handler is still a free way to make the server do database work.
+        if (!allow(socket, 'tip:respond', 60, 60_000)) {
+          return fail(socket, RealtimeErrorCode.RATE_LIMITED, 'Slow down a moment.');
+        }
+
         const data = parse(socket, 'tip:respond', tipRespondSocketSchema, payload);
         if (!data) return;
 
