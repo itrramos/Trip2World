@@ -1,11 +1,12 @@
 'use client';
 
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
 import { AuthShell, Button } from '@/components/ui';
+import { Link } from '@/i18n/navigation';
 
 type State =
   | { kind: 'verifying' }
@@ -15,6 +16,8 @@ type State =
   | { kind: 'missing' };
 
 function VerifyEmail() {
+  const t = useTranslations('auth.verify');
+  const tCommon = useTranslations('common');
   const token = useSearchParams().get('token');
   const [state, setState] = useState<State>(token ? { kind: 'verifying' } : { kind: 'missing' });
 
@@ -38,21 +41,18 @@ function VerifyEmail() {
           if (error.error.code === 'TOKEN_EXPIRED') setState({ kind: 'expired' });
           else setState({ kind: 'invalid', message: error.message });
         } else {
-          setState({
-            kind: 'invalid',
-            message: 'We could not reach Trip2World. Check your connection and try again.',
-          });
+          setState({ kind: 'invalid', message: tCommon('networkError') });
         }
       }
     })();
-  }, [token]);
+  }, [token, tCommon]);
 
   if (state.kind === 'verifying') {
     return (
-      <AuthShell title="Confirming your email" subtitle="This will only take a moment." footer={null}>
+      <AuthShell title={t('workingTitle')} subtitle={t('workingSubtitle')} footer={null}>
         <div className="flex items-center gap-3 text-sm text-muted">
           <Loader2 className="h-5 w-5 animate-spin text-brand" aria-hidden />
-          Checking your link…
+          {t('workingBody')}
         </div>
       </AuthShell>
     );
@@ -61,24 +61,24 @@ function VerifyEmail() {
   if (state.kind === 'success') {
     return (
       <AuthShell
-        title="Email confirmed"
-        subtitle="Your account is ready."
+        title={t('successTitle')}
+        subtitle={t('successSubtitle')}
         footer={
           <Link href="/" className="text-muted underline underline-offset-4">
-            Back to home
+            {t('backToHome')}
           </Link>
         }
       >
         <div className="space-y-6">
           <div className="flex items-center gap-3 rounded-sm border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
             <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden />
-            You can now start meeting people.
+            {t('successBody')}
           </div>
           <Link
             href="/login"
             className="glow inline-flex w-full items-center justify-center rounded-sm bg-brand px-7 py-3.5 font-medium text-background transition-transform duration-fast hover:scale-[1.01]"
           >
-            Sign in
+            {tCommon('signIn')}
           </Link>
         </div>
       </AuthShell>
@@ -89,15 +89,11 @@ function VerifyEmail() {
 
   return (
     <AuthShell
-      title={isExpired ? 'This link has expired' : 'We could not confirm that link'}
-      subtitle={
-        isExpired
-          ? 'Confirmation links are valid for 24 hours.'
-          : 'The link may have already been used.'
-      }
+      title={isExpired ? t('expiredTitle') : t('failedTitle')}
+      subtitle={isExpired ? t('expiredSubtitle') : t('failedSubtitle')}
       footer={
         <Link href="/login" className="text-brand underline underline-offset-4">
-          Back to sign in
+          {t('backToSignIn')}
         </Link>
       }
     >
@@ -106,10 +102,10 @@ function VerifyEmail() {
           <XCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <span>
             {state.kind === 'missing'
-              ? 'That link is incomplete. Open the link from your email directly rather than copying part of it.'
+              ? t('missingBody')
               : state.kind === 'invalid'
                 ? state.message
-                : 'Request a new confirmation email and try again.'}
+                : t('expiredBody')}
           </span>
         </div>
 
@@ -127,16 +123,14 @@ function VerifyEmail() {
  * account-enumeration oracle that the login endpoint carefully avoids being.
  */
 function ResendVerification() {
+  const t = useTranslations('auth.verify');
+  const tCommon = useTranslations('common');
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (sent) {
-    return (
-      <p className="text-sm text-muted">
-        If that address still needs confirming, a new link is on its way.
-      </p>
-    );
+    return <p className="text-sm text-muted">{t('resendSent')}</p>;
   }
 
   return (
@@ -155,7 +149,7 @@ function ResendVerification() {
       }}
     >
       <label htmlFor="resend-email" className="block text-sm font-medium">
-        Send a new link
+        {t('resendLabel')}
       </label>
       <input
         id="resend-email"
@@ -163,11 +157,11 @@ function ResendVerification() {
         required
         value={email}
         onChange={(event) => setEmail(event.target.value)}
-        placeholder="you@example.com"
+        placeholder={tCommon('emailPlaceholder')}
         className="w-full rounded-sm border border-border bg-surface px-3.5 py-2.5 text-sm placeholder:text-muted/60 focus:border-brand"
       />
       <Button type="submit" variant="secondary" fullWidth loading={busy}>
-        Resend confirmation email
+        {t('resendSubmit')}
       </Button>
     </form>
   );

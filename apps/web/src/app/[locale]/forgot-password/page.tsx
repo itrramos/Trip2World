@@ -1,12 +1,16 @@
 'use client';
 
 import { MailCheck } from 'lucide-react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useState, type FormEvent } from 'react';
 import { api } from '@/lib/api';
 import { AuthShell, Button, Field, Input } from '@/components/ui';
+import { Link } from '@/i18n/navigation';
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations('auth.forgot');
+  const tCommon = useTranslations('common');
+
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -37,19 +41,21 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <AuthShell
-        title="Check your email"
-        subtitle="If we found an account, a reset link is on its way."
+        title={t('sentTitle')}
+        subtitle={t('sentSubtitle')}
         footer={
           <Link href="/login" className="text-brand underline underline-offset-4">
-            Back to sign in
+            {t('backToSignIn')}
           </Link>
         }
       >
         <div className="flex items-start gap-3 rounded-sm border border-brand/30 bg-brand/10 px-4 py-3 text-sm">
           <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden />
           <span className="text-muted">
-            We sent a link to <span className="text-foreground">{email}</span> if an account exists
-            for it. The link expires in one hour and can only be used once.
+            {t.rich('sentBody', {
+              email,
+              strong: (chunks) => <span className="text-foreground">{chunks}</span>,
+            })}
           </span>
         </div>
       </AuthShell>
@@ -58,16 +64,16 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      title="Reset your password"
-      subtitle="We will email you a link to set a new one."
+      title={t('title')}
+      subtitle={t('subtitle')}
       footer={
         <Link href="/login" className="text-brand underline underline-offset-4">
-          Back to sign in
+          {t('backToSignIn')}
         </Link>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        <Field label="Email" htmlFor="email">
+        <Field label={t('email')} htmlFor="email">
           <Input
             id="email"
             type="email"
@@ -76,12 +82,12 @@ export default function ForgotPasswordPage() {
             autoFocus
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
+            placeholder={tCommon('emailPlaceholder')}
           />
         </Field>
 
         <Button type="submit" size="lg" fullWidth loading={busy}>
-          Send reset link
+          {t('submit')}
         </Button>
       </form>
     </AuthShell>

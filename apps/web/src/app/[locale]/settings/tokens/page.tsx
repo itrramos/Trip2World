@@ -2,11 +2,12 @@
 
 import { Button, cn } from '@trip2world/ui';
 import { ArrowLeft, Coins, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
 import { useRequireAuth } from '@/components/session-provider';
+import { Link } from '@/i18n/navigation';
 
 interface Balance {
   balance: number;
@@ -32,20 +33,22 @@ interface LedgerEntry {
   createdAt: string;
 }
 
-const KIND_LABEL: Record<string, string> = {
-  PURCHASE: 'Tokens purchased',
-  TIP_SENT: 'Tip sent',
-  TIP_RECEIVED: 'Tip received',
-  REFUND: 'Refund',
-  ADJUSTMENT: 'Adjustment',
-  PROMO: 'Promotional credit',
-};
-
-function formatPrice(cents: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
+/**
+ * Price in the reader's locale, in the package's own currency.
+ *
+ * The locale decides the *formatting* — "€9.99" in English, "9,99 €" in French — while
+ * the currency stays whatever the package is actually sold in. Converting the currency to
+ * match the language would be a lie about what the card will be charged.
+ */
+function formatPrice(cents: number, currency: string, locale: string): string {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(cents / 100);
 }
 
 function TokensSettings() {
+  const t = useTranslations('tokens');
+  const tCommon = useTranslations('common');
+  const format = useFormatter();
+  const locale = useLocale();
   const { status } = useRequireAuth();
   const params = useSearchParams();
 
@@ -70,9 +73,9 @@ function TokensSettings() {
       setPurchasingEnabled(packageData.purchasingEnabled);
       setHistory(historyData.items);
     } catch {
-      setError('Could not load your token balance.');
+      setError(t('loadFailed'));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (status === 'authenticated') void load();
@@ -105,9 +108,7 @@ function TokensSettings() {
       });
       window.location.href = checkoutUrl;
     } catch (caught) {
-      setError(
-        caught instanceof ApiRequestError ? caught.message : 'Could not start checkout.',
-      );
+      setError(caught instanceof ApiRequestError ? caught.message : t('checkoutFailed'));
       setBusySlug(null);
     }
   }
@@ -127,19 +128,19 @@ function TokensSettings() {
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        Settings
+        {tCommon('back')}
       </Link>
 
-      <h1 className="mt-6 text-2xl font-semibold tracking-tight">Tokens</h1>
+      <h1 className="mt-6 text-2xl font-semibold tracking-tight">{t('title')}</h1>
 
       {purchaseResult === 'success' && (
         <p className="mt-5 rounded-sm border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          Payment received. Your balance updates within a few seconds.
+          {t('purchaseSuccess')}
         </p>
       )}
       {purchaseResult === 'cancelled' && (
         <p className="mt-5 rounded-sm border border-border bg-surface px-4 py-3 text-sm text-muted">
-          Checkout cancelled. Nothing was charged.
+          {t('purchaseCancelled')}
         </p>
       )}
       {error && (
@@ -151,24 +152,24 @@ function TokensSettings() {
       <div className="glass mt-6 rounded-lg p-6">
         <p className="flex items-center gap-2 text-sm text-muted">
           <Coins className="h-4 w-4 text-brand" aria-hidden />
-          Your balance
+          {t('yourBalance')}
         </p>
-        <p className="mt-2 text-4xl font-semibold tabular-nums">
-          {balance.balance.toLocaleString()}
-        </p>
+        <p className="mt-2 text-4xl font-semibold tabular-nums">{format.number(balance.balance)}</p>
         <p className="mt-2 text-xs text-muted">
-          {balance.lifetimePurchased.toLocaleString()} purchased ·{' '}
-          {balance.lifetimeEarned.toLocaleString()} received from tips
+          {t('lifetime', {
+            purchased: format.number(balance.lifetimePurchased),
+            earned: format.number(balance.lifetimeEarned),
+          })}
         </p>
       </div>
 
       <section className="mt-10">
-        <h2 className="text-lg font-medium">Buy tokens</h2>
+        <h2 className="text-lg font-medium">{t('buyTitle')}</h2>
 
         {!purchasingEnabled ? (
           // Honest about the reason rather than showing a button that fails.
           <p className="mt-3 rounded-sm border border-border bg-surface px-4 py-3 text-sm text-muted">
-            Buying tokens is not available on this deployment yet.
+            {t('buyUnavailable')}
           </p>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -186,9 +187,9 @@ function TokensSettings() {
               >
                 <span>
                   <span className="block text-xl font-semibold tabular-nums">
-                    {pkg.tokens.toLocaleString()}
+                    {format.number(pkg.tokens)}
                   </span>
-                  <span className="text-xs text-muted">tokens</span>
+                  <span className="text-xs text-muted">{t('packageUnit')}</span>
                   {pkg.label && (
                     <span className="ml-2 rounded-full bg-brand/15 px-2 py-0.5 text-xs text-brand">
                       {pkg.label}
@@ -197,7 +198,7 @@ function TokensSettings() {
                 </span>
                 <span className="text-right">
                   <span className="block font-medium">
-                    {formatPrice(pkg.priceCents, pkg.currency)}
+                    {formatPrice(pkg.priceCents, pkg.currency, locale)}
                   </span>
                   {busySlug === pkg.slug && (
                     <Loader2 className="ml-auto mt-1 h-4 w-4 animate-spin text-brand" aria-hidden />
@@ -209,28 +210,32 @@ function TokensSettings() {
         )}
 
         <p className="mt-4 text-xs text-muted">
-          Tokens have no cash value and cannot be withdrawn. Tips are final and cannot be
-          refunded once sent. See the{' '}
-          <Link href="/terms" className="underline underline-offset-4">
-            Terms
-          </Link>
-          .
+          {t.rich('disclaimer', {
+            link: (chunks) => (
+              <Link href="/terms" className="underline underline-offset-4">
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       </section>
 
       <section className="mt-10">
-        <h2 className="text-lg font-medium">History</h2>
+        <h2 className="text-lg font-medium">{t('historyTitle')}</h2>
 
         {history.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Nothing yet.</p>
+          <p className="mt-3 text-sm text-muted">{t('historyEmpty')}</p>
         ) : (
           <ul className="mt-4 divide-y divide-border rounded-lg border border-border">
             {history.map((entry) => (
               <li key={entry.id} className="flex items-center justify-between gap-4 px-4 py-3">
                 <span className="min-w-0">
-                  <span className="block text-sm">{KIND_LABEL[entry.kind] ?? entry.kind}</span>
+                  <span className="block text-sm">{t(`kinds.${entry.kind}`)}</span>
                   <span className="text-xs text-muted">
-                    {new Date(entry.createdAt).toLocaleString()}
+                    {format.dateTime(new Date(entry.createdAt), {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
                     {entry.note && ` · ${entry.note}`}
                   </span>
                 </span>
@@ -242,10 +247,10 @@ function TokensSettings() {
                     )}
                   >
                     {entry.delta > 0 ? '+' : ''}
-                    {entry.delta.toLocaleString()}
+                    {format.number(entry.delta)}
                   </span>
                   <span className="text-xs tabular-nums text-muted">
-                    {entry.balanceAfter.toLocaleString()}
+                    {format.number(entry.balanceAfter)}
                   </span>
                 </span>
               </li>

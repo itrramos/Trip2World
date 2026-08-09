@@ -22,22 +22,22 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
-import { MEDIA_ERROR_COPY } from '@/lib/media';
+import { MEDIA_ERROR_RETRYABLE } from '@/lib/media';
 import { useRequireAuth } from '@/components/session-provider';
 import { TipDialog, TipOfferPrompt, TipToast } from '@/components/tips';
 import { useConversation } from '@/hooks/use-conversation';
 import { Button, cn } from '@/components/ui';
+import { Link } from '@/i18n/navigation';
 
-const SEARCH_HINTS = [
-  'Finding someone around the world…',
-  'Looking for a good match…',
-  'Widening the search…',
-  'Almost there…',
-];
+/** Four escalating hints, chosen by how long the search has been running. */
+const SEARCH_HINT_COUNT = 4;
 
 export default function DiscoverPage() {
+  const t = useTranslations('discover');
+  const tMedia = useTranslations('media');
+  const tCommon = useTranslations('common');
   const { status, user } = useRequireAuth();
   const conversation = useConversation();
   const {
@@ -104,7 +104,7 @@ export default function DiscoverPage() {
     return (
       <main className="flex min-h-dvh items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-brand" aria-hidden />
-        <span className="sr-only">Loading</span>
+        <span className="sr-only">{tCommon('loading')}</span>
       </main>
     );
   }
@@ -116,7 +116,7 @@ export default function DiscoverPage() {
     state === SessionState.RECONNECTING;
 
   const searching = state === SessionState.QUEUED || state === SessionState.MATCH_FOUND;
-  const hintIndex = Math.min(Math.floor(waitingSeconds / 8), SEARCH_HINTS.length - 1);
+  const hintIndex = Math.min(Math.floor(waitingSeconds / 8), SEARCH_HINT_COUNT - 1);
 
   /**
    * The queue contains only us. Reported by the server, so it accounts for people
@@ -140,12 +140,12 @@ export default function DiscoverPage() {
           <span className="tabular-nums">
             {conversation.tokenBalance === null ? '—' : conversation.tokenBalance.toLocaleString()}
           </span>
-          <span className="sr-only">tokens — open token settings</span>
+          <span className="sr-only">{t('tokensLabel')}</span>
         </Link>
 
         <Link
           href="/settings"
-          aria-label="Settings"
+          aria-label={t('settings')}
           className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10"
         >
           <Settings className="h-4 w-4" aria-hidden />
@@ -192,11 +192,17 @@ export default function DiscoverPage() {
           state === SessionState.REQUESTING_PERMISSIONS) &&
           !mediaError && (
             <StageMessage
-              title={state === SessionState.REQUESTING_PERMISSIONS ? 'Allow your camera' : 'Ready when you are'}
+              title={
+                state === SessionState.REQUESTING_PERMISSIONS
+                  ? t('permissionsTitle')
+                  : t('readyTitle')
+              }
               body={
                 state === SessionState.REQUESTING_PERMISSIONS
-                  ? 'Your browser will ask for permission. Nothing is shared until you start.'
-                  : `Hi ${user?.displayName ?? user?.username ?? 'there'} — press Start to meet someone new.`
+                  ? t('permissionsBody')
+                  : t('readyBody', {
+                      name: user?.displayName ?? user?.username ?? t('readyFallbackName'),
+                    })
               }
             >
               {state === SessionState.REQUESTING_PERMISSIONS ? (
@@ -215,7 +221,7 @@ export default function DiscoverPage() {
                     })();
                   }}
                 >
-                  Start Exploring
+                  {t('start')}
                 </Button>
               )}
             </StageMessage>
@@ -224,13 +230,13 @@ export default function DiscoverPage() {
         {/* Media permission failure */}
         {mediaError && (
           <StageMessage
-            title={MEDIA_ERROR_COPY[mediaError.kind].title}
-            body={MEDIA_ERROR_COPY[mediaError.kind].body}
+            title={tMedia(`${mediaError.kind}.title`)}
+            body={tMedia(`${mediaError.kind}.body`)}
             tone="danger"
           >
-            {MEDIA_ERROR_COPY[mediaError.kind].retry && (
+            {MEDIA_ERROR_RETRYABLE[mediaError.kind] && (
               <Button size="lg" onClick={() => void conversation.startMedia()}>
-                Try again
+                {t('tryAgain')}
               </Button>
             )}
           </StageMessage>
@@ -244,21 +250,20 @@ export default function DiscoverPage() {
               // queue holds exactly one person is a lie the user can feel, and it makes a
               // genuinely empty room indistinguishable from a broken matchmaker.
               alone
-                ? 'Nobody else is here right now'
+                ? t('aloneTitle')
                 : !conversation.queueConfirmed
-                  ? 'Connecting to Trip2World…'
-                  : SEARCH_HINTS[hintIndex]!
+                  ? t('connectingToServer')
+                  : t(`searchHints.${hintIndex}`)
             }
             body={
               alone
-                ? 'You are the only person searching. Stay here and we will pair you the moment someone joins.'
+                ? t('aloneBody')
                 : !conversation.queueConfirmed
-                  ? 'Waiting for the server to confirm your place in the queue.'
-                  : `Searching for ${formatDuration(waitingSeconds)}${
-                      conversation.searchingNow !== null
-                        ? ` · ${conversation.searchingNow} searching`
-                        : ''
-                    }`
+                  ? t('connectingToServerBody')
+                  : t('searchingFor', { duration: formatDuration(waitingSeconds) }) +
+                    (conversation.searchingNow !== null
+                      ? ` · ${t('searchingCount', { count: conversation.searchingNow })}`
+                      : '')
             }
           >
             <div className="relative flex h-24 w-24 items-center justify-center">
@@ -270,23 +275,20 @@ export default function DiscoverPage() {
               <Sparkles className="h-8 w-8 text-brand" aria-hidden />
             </div>
             <Button variant="ghost" onClick={conversation.leaveQueue}>
-              Cancel
+              {tCommon('cancel')}
             </Button>
           </StageMessage>
         )}
 
         {/* Partner left */}
         {state === SessionState.PARTNER_LEFT && (
-          <StageMessage
-            title="Your partner left the conversation"
-            body="That happens — press Next to meet someone else."
-          >
+          <StageMessage title={t('partnerLeftTitle')} body={t('partnerLeftBody')}>
             <div className="flex gap-3">
               <Button size="lg" onClick={conversation.joinQueue}>
-                Find someone new
+                {t('findSomeoneNew')}
               </Button>
               <Button variant="secondary" size="lg" onClick={conversation.endConversation}>
-                Stop
+                {t('stop')}
               </Button>
             </div>
           </StageMessage>
@@ -294,14 +296,20 @@ export default function DiscoverPage() {
 
         {/* Fatal error */}
         {state === SessionState.ERROR && error && (
-          <StageMessage title={error.title} body={error.body} tone="danger">
+          <StageMessage
+            title={t(`errors.${error.key}.title`)}
+            // A server-supplied reason is always more specific than the generic body —
+            // "posting sexual content" beats "your account is restricted".
+            body={error.detail ?? t(`errors.${error.key}.body`)}
+            tone="danger"
+          >
             {error.retry ? (
               <Button size="lg" onClick={conversation.joinQueue}>
-                Try again
+                {t('tryAgain')}
               </Button>
             ) : (
               <Link href="/" className="text-sm text-muted underline underline-offset-4">
-                Back to home
+                {t('backToHome')}
               </Link>
             )}
           </StageMessage>
@@ -314,7 +322,7 @@ export default function DiscoverPage() {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
             <Loader2 className="h-7 w-7 animate-spin text-brand" aria-hidden />
             <p className="text-sm text-muted">
-              {state === SessionState.RECONNECTING ? 'Reconnecting…' : 'Connecting…'}
+              {state === SessionState.RECONNECTING ? t('reconnecting') : t('connecting')}
             </p>
           </div>
         )}
@@ -384,7 +392,7 @@ export default function DiscoverPage() {
               step={conversation.zoom.step}
               value={conversation.zoom.current}
               onChange={(event) => conversation.setZoom(Number(event.target.value))}
-              aria-label="Camera zoom"
+              aria-label={t('controls.zoom')}
               className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/20 accent-brand"
             />
             <ZoomIn className="h-4 w-4 shrink-0 text-muted" aria-hidden />
@@ -395,7 +403,9 @@ export default function DiscoverPage() {
             phone, and a horizontally-scrolling control bar hides the button you need. */}
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 sm:gap-3">
           <ControlButton
-            label={microphoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
+            label={
+              microphoneEnabled ? t('controls.muteMicrophone') : t('controls.unmuteMicrophone')
+            }
             active={microphoneEnabled}
             onClick={conversation.toggleMicrophone}
             disabled={!conversation.localStream.current}
@@ -404,7 +414,7 @@ export default function DiscoverPage() {
           </ControlButton>
 
           <ControlButton
-            label={cameraEnabled ? 'Turn camera off' : 'Turn camera on'}
+            label={cameraEnabled ? t('controls.cameraOff') : t('controls.cameraOn')}
             active={cameraEnabled}
             onClick={conversation.toggleCamera}
             disabled={!conversation.localStream.current}
@@ -416,7 +426,7 @@ export default function DiscoverPage() {
               with one webcam is noise. */}
           {conversation.canSwitchCamera && (
             <ControlButton
-              label="Switch camera"
+              label={t('controls.switchCamera')}
               onClick={() => void conversation.switchCamera()}
               disabled={!conversation.localStream.current || conversation.switchingCamera}
             >
@@ -433,11 +443,11 @@ export default function DiscoverPage() {
             className="min-w-[9rem]"
           >
             <SkipForward className="h-5 w-5" aria-hidden />
-            Next
+            {t('controls.next')}
           </Button>
 
           <ControlButton
-            label="Send a tip"
+            label={t('controls.tip')}
             onClick={() => setTipOpen(true)}
             disabled={!inCall || !partner}
           >
@@ -445,7 +455,7 @@ export default function DiscoverPage() {
           </ControlButton>
 
           <ControlButton
-            label="Block this person"
+            label={t('controls.block')}
             tone="danger"
             onClick={() => setBlockOpen(true)}
             disabled={!inCall || !partner}
@@ -454,7 +464,7 @@ export default function DiscoverPage() {
           </ControlButton>
 
           <ControlButton
-            label="Report this person"
+            label={t('controls.report')}
             tone="danger"
             onClick={() => setReportOpen(true)}
             disabled={!inCall || !partner}
@@ -463,7 +473,7 @@ export default function DiscoverPage() {
           </ControlButton>
 
           <ControlButton
-            label={inCall ? 'End conversation' : 'Leave'}
+            label={inCall ? t('controls.endCall') : t('controls.leave')}
             tone="danger"
             onClick={conversation.endConversation}
             disabled={!inCall && state !== SessionState.QUEUED}
@@ -480,9 +490,10 @@ export default function DiscoverPage() {
       */}
       {blockOpen && partner && (
         <ConfirmDialog
-          title={`Block ${partner.displayName ?? partner.username}?`}
-          body="You will never be matched with them again, and this cannot be undone from inside a call. The conversation ends now."
-          confirmLabel="Block"
+          title={t('blockDialog.title', { name: partner.displayName ?? partner.username })}
+          body={t('blockDialog.body')}
+          confirmLabel={t('blockDialog.confirm')}
+          cancelLabel={tCommon('cancel')}
           onCancel={() => setBlockOpen(false)}
           onConfirm={() => {
             conversation.blockPartner();
@@ -543,12 +554,14 @@ function ConfirmDialog({
   title,
   body,
   confirmLabel,
+  cancelLabel,
   onCancel,
   onConfirm,
 }: {
   title: string;
   body: string;
   confirmLabel: string;
+  cancelLabel: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -574,7 +587,7 @@ function ConfirmDialog({
         <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
         <div className="mt-6 flex gap-3">
           <Button variant="secondary" fullWidth onClick={onCancel}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button variant="danger" fullWidth onClick={onConfirm}>
             {confirmLabel}
@@ -585,20 +598,26 @@ function ConfirmDialog({
   );
 }
 
-const QUALITY_COPY: Record<ConnectionQuality, { label: string; className: string }> = {
-  EXCELLENT: { label: 'Excellent', className: 'text-success' },
-  GOOD: { label: 'Good', className: 'text-success' },
-  FAIR: { label: 'Fair', className: 'text-warning' },
-  POOR: { label: 'Poor', className: 'text-danger' },
-  UNKNOWN: { label: 'Checking', className: 'text-muted' },
+/** Colour only. The words come from the catalogue. */
+const QUALITY_CLASS: Record<ConnectionQuality, string> = {
+  EXCELLENT: 'text-success',
+  GOOD: 'text-success',
+  FAIR: 'text-warning',
+  POOR: 'text-danger',
+  UNKNOWN: 'text-muted',
 };
 
 function QualityBadge({ quality }: { quality: ConnectionQuality }) {
-  const { label, className } = QUALITY_COPY[quality];
+  const t = useTranslations('discover.quality');
+  const label = t(quality);
+
   return (
-    <span className={cn('flex items-center gap-1 text-xs', className)} title={`Connection: ${label}`}>
+    <span
+      className={cn('flex items-center gap-1 text-xs', QUALITY_CLASS[quality])}
+      title={t('label', { quality: label })}
+    >
       <Signal className="h-3.5 w-3.5" aria-hidden />
-      <span className="sr-only">Connection quality: </span>
+      <span className="sr-only">{t('srLabel')} </span>
       {label}
     </span>
   );
@@ -643,18 +662,6 @@ function ControlButton({
   );
 }
 
-const REPORT_LABELS: Record<string, string> = {
-  NUDITY: 'Nudity or sexual content',
-  HARASSMENT: 'Harassment',
-  HATE: 'Hate or abusive behaviour',
-  UNDERAGE: 'They appear to be under 18',
-  VIOLENCE: 'Violence or threats',
-  SPAM: 'Spam',
-  SCAM: 'Scam',
-  IMPERSONATION: 'Impersonation',
-  OTHER: 'Something else',
-};
-
 function ReportDialog({
   partnerName,
   onClose,
@@ -664,6 +671,8 @@ function ReportDialog({
   onClose: () => void;
   onSubmit: (category: string, details?: string) => void;
 }) {
+  const t = useTranslations('discover.reportDialog');
+  const tCommon = useTranslations('common');
   const [category, setCategory] = useState<string>('');
   const [details, setDetails] = useState('');
 
@@ -685,14 +694,12 @@ function ReportDialog({
     >
       <div className="glass w-full max-w-md rounded-lg p-6">
         <h2 id="report-title" className="text-lg font-semibold">
-          Report {partnerName}
+          {t('title', { name: partnerName })}
         </h2>
-        <p className="mt-1.5 text-sm text-muted">
-          The conversation will end and you will not be matched with them again.
-        </p>
+        <p className="mt-1.5 text-sm text-muted">{t('subtitle')}</p>
 
         <fieldset className="mt-5 space-y-2">
-          <legend className="sr-only">Reason for reporting</legend>
+          <legend className="sr-only">{t('legend')}</legend>
           {REPORT_CATEGORIES.map((value) => (
             <label
               key={value}
@@ -709,7 +716,7 @@ function ReportDialog({
                 onChange={() => setCategory(value)}
                 className="accent-brand"
               />
-              {REPORT_LABELS[value] ?? value}
+              {t(`categories.${value}`)}
             </label>
           ))}
         </fieldset>
@@ -719,13 +726,13 @@ function ReportDialog({
           onChange={(event) => setDetails(event.target.value)}
           rows={3}
           maxLength={1000}
-          placeholder="Anything else our moderators should know? (optional)"
+          placeholder={t('detailsPlaceholder')}
           className="mt-4 w-full rounded-sm border border-border bg-surface px-3.5 py-2.5 text-sm placeholder:text-muted/60 focus:border-brand"
         />
 
         <div className="mt-5 flex gap-3">
           <Button variant="secondary" fullWidth onClick={onClose}>
-            Cancel
+            {tCommon('cancel')}
           </Button>
           <Button
             variant="danger"
@@ -733,7 +740,7 @@ function ReportDialog({
             disabled={!category}
             onClick={() => onSubmit(category, details.trim() || undefined)}
           >
-            Send report
+            {t('submit')}
           </Button>
         </div>
       </div>

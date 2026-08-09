@@ -1,12 +1,12 @@
 'use client';
 
 import { COUNTRIES, DEFAULT_MINIMUM_AGE, PASSWORD_MIN_LENGTH } from '@trip2world/shared';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { useMemo, useState, type FormEvent } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
 import { useSession } from '@/components/session-provider';
 import { AuthShell, Button, Field, FormError, Input, Select } from '@/components/ui';
+import { Link, useRouter } from '@/i18n/navigation';
 
 /** Latest date of birth that satisfies the age gate, for the date input's `max`. */
 function maxBirthDate(): string {
@@ -16,6 +16,9 @@ function maxBirthDate(): string {
 }
 
 export default function RegisterPage() {
+  const t = useTranslations('auth.register');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const router = useRouter();
   const { signIn } = useSession();
 
@@ -33,7 +36,12 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ requiresVerification: boolean } | null>(null);
 
-  const countries = useMemo(() => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)), []);
+  // Sorted in the reader's language: "Deutschland" belongs under D for a German speaker,
+  // and an accented initial must not sort after Z.
+  const countries = useMemo(
+    () => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [locale],
+  );
 
   const update = (key: keyof typeof form) => (value: string) =>
     setForm((previous) => ({ ...previous, [key]: value }));
@@ -51,7 +59,9 @@ export default function RegisterPage() {
           ...form,
           // The country's primary languages seed the profile; the user can edit them later.
           languages: COUNTRIES.find((c) => c.code === form.country)?.languages ?? ['en'],
-          locale: 'en',
+          // The language they signed up in, so verification email and future sessions
+          // arrive in it rather than defaulting everyone to English.
+          locale,
           acceptedTerms: true,
           acceptedGuidelines: true,
         },
@@ -73,7 +83,7 @@ export default function RegisterPage() {
         // otherwise the same problem is reported twice.
         setError(Object.keys(caught.fieldErrors).length > 0 ? null : caught.message);
       } else {
-        setError('We could not reach Trip2World. Check your connection and try again.');
+        setError(tCommon('networkError'));
       }
     } finally {
       setSubmitting(false);
@@ -83,34 +93,34 @@ export default function RegisterPage() {
   if (done) {
     return (
       <AuthShell
-        title="Check your email"
-        subtitle="One more step before you can start."
+        title={t('checkEmailTitle')}
+        subtitle={t('checkEmailSubtitle')}
         footer={
           <Link href="/login" className="text-brand underline underline-offset-4">
-            Back to sign in
+            {t('backToSignIn')}
           </Link>
         }
       >
         <p className="text-sm leading-relaxed text-muted">
-          We sent a confirmation link to <span className="text-foreground">{form.email}</span>. Open
-          it to activate your account.
+          {t.rich('checkEmailBody', {
+            email: form.email,
+            strong: (chunks) => <span className="text-foreground">{chunks}</span>,
+          })}
         </p>
-        <p className="mt-4 text-xs text-muted">
-          Nothing arrived? Check your spam folder — the link expires in 24 hours.
-        </p>
+        <p className="mt-4 text-xs text-muted">{t('checkEmailSpam')}</p>
       </AuthShell>
     );
   }
 
   return (
     <AuthShell
-      title="Create your account"
-      subtitle={`Free, and you must be ${DEFAULT_MINIMUM_AGE} or over.`}
+      title={t('title')}
+      subtitle={t('subtitle', { age: DEFAULT_MINIMUM_AGE })}
       footer={
         <>
-          Already have an account?{' '}
+          {t('footerPrompt')}{' '}
           <Link href="/login" className="text-brand underline underline-offset-4">
-            Sign in
+            {t('footerAction')}
           </Link>
         </>
       }
@@ -118,7 +128,7 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <FormError message={error} />
 
-        <Field label="Email" htmlFor="email" error={fieldErrors.email?.[0]}>
+        <Field label={t('email')} htmlFor="email" error={fieldErrors.email?.[0]}>
           <Input
             id="email"
             type="email"
@@ -127,15 +137,15 @@ export default function RegisterPage() {
             invalid={Boolean(fieldErrors.email)}
             value={form.email}
             onChange={(e) => update('email')(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={tCommon('emailPlaceholder')}
           />
         </Field>
 
         <Field
-          label="Username"
+          label={t('username')}
           htmlFor="username"
           error={fieldErrors.username?.[0]}
-          hint="Lowercase letters, numbers and underscores. This is what other people see."
+          hint={t('usernameHint')}
         >
           <Input
             id="username"
@@ -144,15 +154,15 @@ export default function RegisterPage() {
             invalid={Boolean(fieldErrors.username)}
             value={form.username}
             onChange={(e) => update('username')(e.target.value.toLowerCase())}
-            placeholder="ana_pt"
+            placeholder={t('usernamePlaceholder')}
           />
         </Field>
 
         <Field
-          label="Password"
+          label={t('password')}
           htmlFor="password"
           error={fieldErrors.password?.[0]}
-          hint={`At least ${PASSWORD_MIN_LENGTH} characters. A short phrase works well.`}
+          hint={t('passwordHint', { min: PASSWORD_MIN_LENGTH })}
         >
           <Input
             id="password"
@@ -165,7 +175,11 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <Field label="Confirm password" htmlFor="confirmPassword" error={fieldErrors.confirmPassword?.[0]}>
+        <Field
+          label={t('confirmPassword')}
+          htmlFor="confirmPassword"
+          error={fieldErrors.confirmPassword?.[0]}
+        >
           <Input
             id="confirmPassword"
             type="password"
@@ -178,10 +192,10 @@ export default function RegisterPage() {
         </Field>
 
         <Field
-          label="Date of birth"
+          label={t('birthDate')}
           htmlFor="birthDate"
           error={fieldErrors.birthDate?.[0]}
-          hint="Only ever shown to you. Others see an age range."
+          hint={t('birthDateHint')}
         >
           <Input
             id="birthDate"
@@ -194,7 +208,7 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <Field label="Country" htmlFor="country" error={fieldErrors.country?.[0]}>
+        <Field label={t('country')} htmlFor="country" error={fieldErrors.country?.[0]}>
           <Select
             id="country"
             required
@@ -203,7 +217,7 @@ export default function RegisterPage() {
             onChange={(e) => update('country')(e.target.value)}
           >
             <option value="" disabled>
-              Select your country
+              {t('countryPlaceholder')}
             </option>
             {countries.map((country) => (
               <option key={country.code} value={country.code}>
@@ -228,20 +242,24 @@ export default function RegisterPage() {
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-border bg-surface accent-brand"
           />
           <span className="text-muted">
-            I am {DEFAULT_MINIMUM_AGE} or older and I accept the{' '}
-            <Link href="/terms" className="text-brand underline underline-offset-4">
-              Terms
-            </Link>{' '}
-            and{' '}
-            <Link href="/guidelines" className="text-brand underline underline-offset-4">
-              Community Guidelines
-            </Link>
-            .
+            {t.rich('consent', {
+              age: DEFAULT_MINIMUM_AGE,
+              terms: (chunks) => (
+                <Link href="/terms" className="text-brand underline underline-offset-4">
+                  {chunks}
+                </Link>
+              ),
+              guidelines: (chunks) => (
+                <Link href="/guidelines" className="text-brand underline underline-offset-4">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </span>
         </label>
 
         <Button type="submit" size="lg" fullWidth loading={submitting} disabled={!accepted}>
-          Create account
+          {t('submit')}
         </Button>
       </form>
     </AuthShell>

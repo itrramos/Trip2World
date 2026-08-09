@@ -35,43 +35,23 @@ export class MediaError extends Error {
   }
 }
 
-/** User-facing copy for each failure. Written to be actionable, not merely accurate. */
-export const MEDIA_ERROR_COPY: Record<MediaErrorKind, { title: string; body: string; retry: boolean }> = {
-  PERMISSION_DENIED: {
-    title: 'Trip2World needs your camera and microphone',
-    body: 'Video chat cannot work without them. Click the camera icon in your browser’s address bar and allow access, then try again.',
-    retry: true,
-  },
-  NO_DEVICE: {
-    title: 'No camera or microphone found',
-    body: 'Connect a camera and microphone, then try again. If they are already connected, check they are enabled in your system settings.',
-    retry: true,
-  },
-  DEVICE_BUSY: {
-    title: 'Your camera is being used by another app',
-    body: 'Close any other app using the camera — a video call, or another browser tab — then try again.',
-    retry: true,
-  },
-  INSECURE_CONTEXT: {
-    title: 'This page is not secure',
-    body: 'Browsers only allow camera access over HTTPS. Open Trip2World using an https:// address.',
-    retry: false,
-  },
-  UNSUPPORTED: {
-    title: 'This browser cannot do video chat',
-    body: 'Try a recent version of Chrome, Edge, Firefox or Safari.',
-    retry: false,
-  },
-  OVERCONSTRAINED: {
-    title: 'Your camera does not support the required settings',
-    body: 'We will try again with basic settings.',
-    retry: true,
-  },
-  UNKNOWN: {
-    title: 'We could not start your camera',
-    body: 'Something went wrong reaching your camera or microphone. Try again.',
-    retry: true,
-  },
+/**
+ * Whether offering a retry button makes sense for each failure.
+ *
+ * This is behaviour, not copy, which is why it stayed here when the titles and bodies
+ * moved into `messages/*.json` under the `media` namespace. Retrying an INSECURE_CONTEXT
+ * or UNSUPPORTED failure cannot succeed — the page is on http, or the browser has no
+ * `getUserMedia` — so the button would be a lie. The rest are transient and worth a
+ * second attempt.
+ */
+export const MEDIA_ERROR_RETRYABLE: Record<MediaErrorKind, boolean> = {
+  PERMISSION_DENIED: true,
+  NO_DEVICE: true,
+  DEVICE_BUSY: true,
+  INSECURE_CONTEXT: false,
+  UNSUPPORTED: false,
+  OVERCONSTRAINED: true,
+  UNKNOWN: true,
 };
 
 function classify(error: unknown): MediaErrorKind {

@@ -1,5 +1,9 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import createNextIntlPlugin from 'next-intl/plugin';
+
+// Points the plugin at the request config; without this it looks for a default path.
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 /**
  * Repository root, resolved as a real filesystem path.
@@ -72,4 +76,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

@@ -1,13 +1,16 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type FormEvent } from 'react';
 import { ApiRequestError } from '@/lib/api';
 import { useSession } from '@/components/session-provider';
 import { AuthShell, Button, Field, FormError, Input } from '@/components/ui';
+import { Link, useRouter } from '@/i18n/navigation';
 
 function LoginForm() {
+  const t = useTranslations('auth.login');
+  const tCommon = useTranslations('common');
   const { signIn, status } = useSession();
   const router = useRouter();
   const params = useSearchParams();
@@ -46,11 +49,10 @@ function LoginForm() {
         // "wrong password"; surfacing it verbatim preserves that property.
         setError(caught.message);
         if (caught.error.code === 'RATE_LIMITED' && caught.error.retryAfter) {
-          const minutes = Math.ceil(caught.error.retryAfter / 60);
-          setError(`Too many attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`);
+          setError(t('rateLimited', { minutes: Math.ceil(caught.error.retryAfter / 60) }));
         }
       } else {
-        setError('We could not reach Trip2World. Check your connection and try again.');
+        setError(tCommon('networkError'));
       }
     } finally {
       setSubmitting(false);
@@ -59,13 +61,13 @@ function LoginForm() {
 
   return (
     <AuthShell
-      title="Welcome back"
-      subtitle="Sign in to start meeting people."
+      title={t('title')}
+      subtitle={t('subtitle')}
       footer={
         <>
-          New to Trip2World?{' '}
+          {t('footerPrompt')}{' '}
           <Link href="/register" className="text-brand underline underline-offset-4">
-            Create an account
+            {t('footerAction')}
           </Link>
         </>
       }
@@ -73,7 +75,7 @@ function LoginForm() {
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         <FormError message={error} />
 
-        <Field label="Email" htmlFor="email">
+        <Field label={t('email')} htmlFor="email">
           <Input
             id="email"
             name="email"
@@ -83,11 +85,11 @@ function LoginForm() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder={tCommon('emailPlaceholder')}
           />
         </Field>
 
-        <Field label="Password" htmlFor="password">
+        <Field label={t('password')} htmlFor="password">
           <Input
             id="password"
             name="password"
@@ -96,7 +98,7 @@ function LoginForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Your password"
+            placeholder={t('passwordPlaceholder')}
           />
         </Field>
 
@@ -105,12 +107,12 @@ function LoginForm() {
             href="/forgot-password"
             className="text-xs text-muted underline underline-offset-4 hover:text-foreground"
           >
-            Forgot your password?
+            {t('forgot')}
           </Link>
         </div>
 
         <Button type="submit" size="lg" fullWidth loading={submitting}>
-          Sign in
+          {t('submit')}
         </Button>
       </form>
     </AuthShell>

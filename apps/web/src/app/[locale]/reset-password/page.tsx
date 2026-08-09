@@ -2,13 +2,16 @@
 
 import { PASSWORD_MIN_LENGTH } from '@trip2world/shared';
 import { CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
 import { AuthShell, Button, Field, FormError, Input } from '@/components/ui';
+import { Link } from '@/i18n/navigation';
 
 function ResetPasswordForm() {
+  const t = useTranslations('auth.reset');
+  const tCommon = useTranslations('common');
   const token = useSearchParams().get('token');
 
   const [password, setPassword] = useState('');
@@ -36,7 +39,7 @@ function ResetPasswordForm() {
         setFieldErrors(caught.fieldErrors);
         setError(Object.keys(caught.fieldErrors).length > 0 ? null : caught.message);
       } else {
-        setError('We could not reach Trip2World. Check your connection and try again.');
+        setError(tCommon('networkError'));
       }
     } finally {
       setBusy(false);
@@ -46,41 +49,32 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <AuthShell
-        title="This link is incomplete"
-        subtitle="Open the link from your email directly."
+        title={t('noTokenTitle')}
+        subtitle={t('noTokenSubtitle')}
         footer={
           <Link href="/forgot-password" className="text-brand underline underline-offset-4">
-            Request a new link
+            {t('requestNew')}
           </Link>
         }
       >
-        <p className="text-sm text-muted">
-          The reset link is missing its token. Copying only part of the URL is the usual cause.
-        </p>
+        <p className="text-sm text-muted">{t('noTokenBody')}</p>
       </AuthShell>
     );
   }
 
   if (done) {
     return (
-      <AuthShell
-        title="Password changed"
-        subtitle="Every other device has been signed out."
-        footer={null}
-      >
+      <AuthShell title={t('doneTitle')} subtitle={t('doneSubtitle')} footer={null}>
         <div className="space-y-6">
           <div className="flex items-start gap-3 rounded-sm border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
-            <span>
-              For your safety, resetting a password ends every existing session — including
-              anyone else who had access.
-            </span>
+            <span>{t('doneBody')}</span>
           </div>
           <Link
             href="/login"
             className="glow inline-flex w-full items-center justify-center rounded-sm bg-brand px-7 py-3.5 font-medium text-background"
           >
-            Sign in
+            {tCommon('signIn')}
           </Link>
         </div>
       </AuthShell>
@@ -89,11 +83,11 @@ function ResetPasswordForm() {
 
   return (
     <AuthShell
-      title="Choose a new password"
-      subtitle="Make it something you have not used elsewhere."
+      title={t('title')}
+      subtitle={t('subtitle')}
       footer={
         <Link href="/login" className="text-muted underline underline-offset-4">
-          Back to sign in
+          {t('backToSignIn')}
         </Link>
       }
     >
@@ -101,10 +95,10 @@ function ResetPasswordForm() {
         <FormError message={error} />
 
         <Field
-          label="New password"
+          label={t('password')}
           htmlFor="password"
           error={fieldErrors.password?.[0] ?? fieldErrors.token?.[0]}
-          hint={`At least ${PASSWORD_MIN_LENGTH} characters. A short phrase works well.`}
+          hint={t('passwordHint', { min: PASSWORD_MIN_LENGTH })}
         >
           <Input
             id="password"
@@ -118,7 +112,11 @@ function ResetPasswordForm() {
           />
         </Field>
 
-        <Field label="Confirm new password" htmlFor="confirmPassword" error={fieldErrors.confirmPassword?.[0]}>
+        <Field
+          label={t('confirmPassword')}
+          htmlFor="confirmPassword"
+          error={fieldErrors.confirmPassword?.[0]}
+        >
           <Input
             id="confirmPassword"
             type="password"
@@ -131,7 +129,7 @@ function ResetPasswordForm() {
         </Field>
 
         <Button type="submit" size="lg" fullWidth loading={busy}>
-          Change password
+          {t('submit')}
         </Button>
       </form>
     </AuthShell>

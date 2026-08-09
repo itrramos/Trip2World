@@ -37,6 +37,14 @@ type RealtimeSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL ?? '';
 const REALTIME_PATH = process.env.NEXT_PUBLIC_REALTIME_PATH ?? '/rt';
 
+/** Keys under the `discover.errors` message namespace. */
+export type ConversationErrorKey =
+  | 'cameraSwitch'
+  | 'disconnected'
+  | 'banned'
+  | 'suspended'
+  | 'generic';
+
 export interface ConversationState {
   state: SessionState;
   partner: PublicProfile | null;
@@ -44,7 +52,19 @@ export interface ConversationState {
   sharedInterests: string[];
   messages: ChatMessage[];
   quality: ConnectionQuality;
-  error: { title: string; body: string; retry: boolean } | null;
+  /**
+   * A failure the user needs to see.
+   *
+   * `key` names an entry under the `discover.errors` namespace rather than carrying
+   * English prose. This hook owns media, sockets and the peer connection; making it also
+   * own user-facing copy would mean either passing a translator into it or leaving five
+   * hard-coded English strings that no locale can reach.
+   *
+   * `detail` is a message the *server* produced — a moderation reason, a validation
+   * failure. It is already localised by the API where the API can localise it, and it is
+   * always more specific than the generic body, so it wins when present.
+   */
+  error: { key: ConversationErrorKey; detail?: string; retry: boolean } | null;
   mediaError: MediaError | null;
   cameraEnabled: boolean;
   microphoneEnabled: boolean;
@@ -497,8 +517,7 @@ export function useConversation() {
       // Keep the existing camera. Surfacing a modal here would be disproportionate for a
       // control the user can simply press again.
       setError({
-        title: 'Could not switch camera',
-        body: 'The other camera is unavailable right now. It may be in use by another app.',
+        key: 'cameraSwitch',
         retry: false,
       });
     } finally {
@@ -595,8 +614,7 @@ export function useConversation() {
         setConnected(false);
         setQueueConfirmed(false);
         setError({
-          title: 'Cannot reach Trip2World',
-          body: 'We lost the connection to our servers. Retrying…',
+          key: 'disconnected',
           retry: false,
         });
       });
@@ -722,8 +740,8 @@ export function useConversation() {
       socket.on('account:restricted', (payload) => {
         closePeer();
         setError({
-          title: payload.status === 'BANNED' ? 'Your account is restricted' : 'Your account is suspended',
-          body: payload.reason,
+          key: payload.status === 'BANNED' ? 'banned' : 'suspended',
+          detail: payload.reason,
           retry: false,
         });
         transitionTo(SessionState.ERROR);
@@ -734,7 +752,7 @@ export function useConversation() {
         // them as a full error state would be alarming and wrong.
         if (payload.code === 'RATE_LIMITED' || payload.code === 'SKIP_COOLDOWN') return;
 
-        setError({ title: 'Something went wrong', body: payload.message, retry: true });
+        setError({ key: 'generic', detail: payload.message, retry: true });
       });
     })();
 

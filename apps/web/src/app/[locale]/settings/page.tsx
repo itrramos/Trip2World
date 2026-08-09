@@ -4,10 +4,12 @@ import { COUNTRIES, MAX_INTERESTS_PER_USER, PREFERRED_COUNTRY_LIMIT } from '@tri
 import type { PlanTier } from '@trip2world/types';
 import { Button, cn, Field, FormError, Input, Select } from '@trip2world/ui';
 import { ArrowLeft, Ban, Check, Coins, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { useFormatter, useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { useRequireAuth } from '@/components/session-provider';
+import { Link } from '@/i18n/navigation';
 
 interface ProfileResponse {
   id: string;
@@ -47,15 +49,11 @@ interface BlockedEntry {
 
 type Tab = 'profile' | 'privacy' | 'matching' | 'blocked' | 'account';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'profile', label: 'Profile' },
-  { id: 'privacy', label: 'Privacy' },
-  { id: 'matching', label: 'Matching' },
-  { id: 'blocked', label: 'Blocked' },
-  { id: 'account', label: 'Account' },
-];
+const TABS: Tab[] = ['profile', 'privacy', 'matching', 'blocked', 'account'];
 
 export default function SettingsPage() {
+  const t = useTranslations('settings');
+  const tCommon = useTranslations('common');
   const { status } = useRequireAuth();
   const [tab, setTab] = useState<Tab>('profile');
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
@@ -72,9 +70,9 @@ export default function SettingsPage() {
       setProfile(me);
       setInterests(catalogue);
     } catch {
-      setError('Could not load your settings.');
+      setError(t('loadFailed'));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (status === 'authenticated') void load();
@@ -93,11 +91,11 @@ export default function SettingsPage() {
         setError(
           caught instanceof ApiRequestError
             ? (Object.values(caught.fieldErrors)[0]?.[0] ?? caught.message)
-            : 'Could not save. Check your connection.',
+            : t('saveFailed'),
         );
       }
     },
-    [],
+    [t],
   );
 
   if (status === 'loading' || !profile) {
@@ -115,35 +113,35 @@ export default function SettingsPage() {
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        Back
+        {tCommon('back')}
       </Link>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
         <Link
           href="/settings/tokens"
           className="inline-flex items-center gap-2 rounded-sm border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-raised"
         >
           <Coins className="h-4 w-4 text-brand" aria-hidden />
-          Tokens
+          {t('tokens')}
         </Link>
       </div>
 
       <div className="mt-6 flex gap-1 overflow-x-auto border-b border-border">
-        {TABS.map((item) => (
+        {TABS.map((id) => (
           <button
-            key={item.id}
+            key={id}
             type="button"
-            onClick={() => setTab(item.id)}
-            aria-current={tab === item.id ? 'page' : undefined}
+            onClick={() => setTab(id)}
+            aria-current={tab === id ? 'page' : undefined}
             className={cn(
               'whitespace-nowrap border-b-2 px-4 py-2.5 text-sm transition-colors',
-              tab === item.id
+              tab === id
                 ? 'border-brand text-brand'
                 : 'border-transparent text-muted hover:text-foreground',
             )}
           >
-            {item.label}
+            {t(`tabs.${id}`)}
           </button>
         ))}
       </div>
@@ -182,6 +180,9 @@ function ProfileTab({
   interests: InterestOption[];
   onSave: SaveFn;
 }) {
+  const t = useTranslations('settings.profile');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
   const [displayName, setDisplayName] = useState(profile.displayName ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
   const [country, setCountry] = useState(profile.country ?? '');
@@ -189,12 +190,15 @@ function ProfileTab({
   const [chosen, setChosen] = useState<string[]>(profile.interests);
   const [busy, setBusy] = useState(false);
 
-  const countries = useMemo(() => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)), []);
+  const countries = useMemo(
+    () => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [locale],
+  );
   const atLimit = chosen.length >= MAX_INTERESTS_PER_USER;
 
   return (
     <section className="space-y-5">
-      <Field label="Display name" htmlFor="displayName" hint="What other people see. Leave blank to use your username.">
+      <Field label={t('displayName')} htmlFor="displayName" hint={t('displayNameHint')}>
         <Input
           id="displayName"
           value={displayName}
@@ -203,7 +207,7 @@ function ProfileTab({
         />
       </Field>
 
-      <Field label="Bio" htmlFor="bio">
+      <Field label={t('bio')} htmlFor="bio">
         <textarea
           id="bio"
           value={bio}
@@ -214,7 +218,7 @@ function ProfileTab({
         />
       </Field>
 
-      <Field label="Country" htmlFor="country">
+      <Field label={t('country')} htmlFor="country">
         <Select id="country" value={country} onChange={(event) => setCountry(event.target.value)}>
           {countries.map((item) => (
             <option key={item.code} value={item.code}>
@@ -224,21 +228,30 @@ function ProfileTab({
         </Select>
       </Field>
 
-      <Field label="Gender" htmlFor="gender">
+      <Field label={t('gender')} htmlFor="gender">
         <Select id="gender" value={gender} onChange={(event) => setGender(event.target.value)}>
-          <option value="UNSPECIFIED">Prefer not to say</option>
-          <option value="FEMALE">Female</option>
-          <option value="MALE">Male</option>
-          <option value="NON_BINARY">Non-binary</option>
-          <option value="OTHER">Other</option>
+          {(['UNSPECIFIED', 'FEMALE', 'MALE', 'NON_BINARY', 'OTHER'] as const).map((value) => (
+            <option key={value} value={value}>
+              {t(`genders.${value}`)}
+            </option>
+          ))}
         </Select>
+      </Field>
+
+      {/*
+        Language lives here rather than in a header dropdown. It is a preference, it is
+        saved to the account alongside the others, and burying it would make the other
+        five catalogues effectively unreachable.
+      */}
+      <Field label={tCommon('language')} htmlFor="locale" hint={t('languageHint')}>
+        <LanguageSwitcher id="locale" />
       </Field>
 
       <fieldset>
         <legend className="text-sm font-medium">
-          Interests{' '}
+          {t('interests')}{' '}
           <span className="font-normal text-muted">
-            ({chosen.length}/{MAX_INTERESTS_PER_USER})
+            {t('counter', { chosen: chosen.length, max: MAX_INTERESTS_PER_USER })}
           </span>
         </legend>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -284,44 +297,45 @@ function ProfileTab({
               gender,
             });
             return api.put<ProfileResponse>('/v1/profile/interests', { interests: chosen });
-          }, 'Profile saved').finally(() => setBusy(false));
+          }, t('saved')).finally(() => setBusy(false));
         }}
       >
-        Save profile
+        {t('save')}
       </Button>
     </section>
   );
 }
 
+/** Toggle keys, in display order. Those with an explanatory hint are listed here. */
+const PRIVACY_TOGGLES = [
+  { key: 'showDisplayName', hint: true },
+  { key: 'showCountry', hint: true },
+  { key: 'showAgeBracket', hint: true },
+  { key: 'showGender', hint: false },
+  { key: 'showInterests', hint: false },
+  { key: 'showBio', hint: false },
+  { key: 'allowConnectionRequests', hint: true },
+] as const;
+
 function PrivacyTab({ profile, onSave }: { profile: ProfileResponse; onSave: SaveFn }) {
+  const t = useTranslations('settings.privacy');
   const [values, setValues] = useState(profile.privacy);
   const [busy, setBusy] = useState(false);
 
-  const TOGGLES: { key: string; label: string; hint: string }[] = [
-    { key: 'showDisplayName', label: 'Show my display name', hint: 'Otherwise people see your username.' },
-    { key: 'showCountry', label: 'Show my country', hint: 'Country only — never your city.' },
-    { key: 'showAgeBracket', label: 'Show my age range', hint: 'A range such as 25–34, never your exact age.' },
-    { key: 'showGender', label: 'Show my gender', hint: '' },
-    { key: 'showInterests', label: 'Show my interests', hint: '' },
-    { key: 'showBio', label: 'Show my bio', hint: '' },
-    { key: 'allowConnectionRequests', label: 'Allow connection requests', hint: 'People you have talked to can ask to stay in touch.' },
-  ];
-
   return (
     <section className="space-y-4">
-      <p className="text-sm text-muted">
-        These control what the person you are matched with can see. Your username is always
-        visible so that reporting and blocking cannot be defeated.
-      </p>
+      <p className="text-sm text-muted">{t('intro')}</p>
 
-      {TOGGLES.map((toggle) => (
+      {PRIVACY_TOGGLES.map((toggle) => (
         <label
           key={toggle.key}
           className="flex cursor-pointer items-start justify-between gap-4 rounded-sm border border-border p-4"
         >
           <span>
-            <span className="text-sm font-medium">{toggle.label}</span>
-            {toggle.hint && <span className="mt-0.5 block text-xs text-muted">{toggle.hint}</span>}
+            <span className="text-sm font-medium">{t(toggle.key)}</span>
+            {toggle.hint && (
+              <span className="mt-0.5 block text-xs text-muted">{t(`${toggle.key}Hint`)}</span>
+            )}
           </span>
           <input
             type="checkbox"
@@ -340,17 +354,19 @@ function PrivacyTab({ profile, onSave }: { profile: ProfileResponse; onSave: Sav
           setBusy(true);
           void onSave(
             () => api.patch<ProfileResponse>('/v1/profile/privacy', values),
-            'Privacy updated',
+            t('saved'),
           ).finally(() => setBusy(false));
         }}
       >
-        Save privacy
+        {t('save')}
       </Button>
     </section>
   );
 }
 
 function MatchingTab({ profile, onSave }: { profile: ProfileResponse; onSave: SaveFn }) {
+  const t = useTranslations('settings.matching');
+  const locale = useLocale();
   const preferences = profile.preferences;
   const [preferredGender, setPreferredGender] = useState(preferences?.preferredGender ?? 'ANY');
   const [preferredCountries, setPreferredCountries] = useState<string[]>(
@@ -362,34 +378,34 @@ function MatchingTab({ profile, onSave }: { profile: ProfileResponse; onSave: Sa
   const [busy, setBusy] = useState(false);
 
   const limit = PREFERRED_COUNTRY_LIMIT[profile.plan as PlanTier] ?? 1;
-  const countries = useMemo(() => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name)), []);
+  const countries = useMemo(
+    () => [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [locale],
+  );
 
   return (
     <section className="space-y-5">
-      <Field label="I want to meet" htmlFor="preferredGender">
+      <Field label={t('wantToMeet')} htmlFor="preferredGender">
         <Select
           id="preferredGender"
           value={preferredGender}
           onChange={(event) => setPreferredGender(event.target.value)}
         >
-          <option value="ANY">Anyone</option>
-          <option value="FEMALE">Women</option>
-          <option value="MALE">Men</option>
+          <option value="ANY">{t('anyone')}</option>
+          <option value="FEMALE">{t('women')}</option>
+          <option value="MALE">{t('men')}</option>
         </Select>
       </Field>
 
       <fieldset>
         <legend className="text-sm font-medium">
-          Preferred countries{' '}
+          {t('preferredCountries')}{' '}
           <span className="font-normal text-muted">
-            ({preferredCountries.length}/{limit})
+            {t('counter', { chosen: preferredCountries.length, max: limit })}
           </span>
         </legend>
         {/* Explain the relaxation behaviour, or an empty result looks like a bug. */}
-        <p className="mt-1 text-xs text-muted">
-          We try these first. If nobody is available we widen the search rather than leave
-          you waiting.
-        </p>
+        <p className="mt-1 text-xs text-muted">{t('relaxationHint')}</p>
         <div className="mt-3 flex max-h-56 flex-wrap gap-2 overflow-y-auto rounded-sm border border-border p-3">
           {countries.map((item) => {
             const active = preferredCountries.includes(item.code);
@@ -419,15 +435,15 @@ function MatchingTab({ profile, onSave }: { profile: ProfileResponse; onSave: Sa
       </fieldset>
 
       {[
-        { checked: autoRequeue, set: setAutoRequeue, label: 'Find someone new automatically when a conversation ends' },
-        { checked: startMuted, set: setStartMuted, label: 'Start conversations muted' },
-        { checked: startCameraOff, set: setStartCameraOff, label: 'Start conversations with my camera off' },
+        { key: 'autoRequeue', checked: autoRequeue, set: setAutoRequeue },
+        { key: 'startMuted', checked: startMuted, set: setStartMuted },
+        { key: 'startCameraOff', checked: startCameraOff, set: setStartCameraOff },
       ].map((toggle) => (
         <label
-          key={toggle.label}
+          key={toggle.key}
           className="flex cursor-pointer items-center justify-between gap-4 rounded-sm border border-border p-4 text-sm"
         >
-          {toggle.label}
+          {t(toggle.key)}
           <input
             type="checkbox"
             checked={toggle.checked}
@@ -450,17 +466,20 @@ function MatchingTab({ profile, onSave }: { profile: ProfileResponse; onSave: Sa
                 startMuted,
                 startCameraOff,
               }),
-            'Matching preferences saved',
+            t('saved'),
           ).finally(() => setBusy(false));
         }}
       >
-        Save preferences
+        {t('save')}
       </Button>
     </section>
   );
 }
 
 function BlockedTab() {
+  const t = useTranslations('settings.blocked');
+  const tCommon = useTranslations('common');
+  const format = useFormatter();
   const [blocked, setBlocked] = useState<BlockedEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -478,16 +497,14 @@ function BlockedTab() {
     void load();
   }, [load]);
 
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+  if (loading) return <p className="text-sm text-muted">{tCommon('loading')}</p>;
 
   if (blocked.length === 0) {
     return (
       <div className="rounded-lg border border-border p-8 text-center">
         <Ban className="mx-auto mb-3 h-7 w-7 text-muted" aria-hidden />
-        <p className="text-sm font-medium">You have not blocked anyone</p>
-        <p className="mt-1 text-sm text-muted">
-          Blocking someone means you will never be matched with them again.
-        </p>
+        <p className="text-sm font-medium">{t('emptyTitle')}</p>
+        <p className="mt-1 text-sm text-muted">{t('emptyBody')}</p>
       </div>
     );
   }
@@ -504,7 +521,9 @@ function BlockedTab() {
               {entry.user.displayName ?? entry.user.username}
             </span>
             <span className="text-xs text-muted">
-              Blocked {new Date(entry.blockedAt).toLocaleDateString()}
+              {t('blockedOn', {
+                date: format.dateTime(new Date(entry.blockedAt), { dateStyle: 'medium' }),
+              })}
             </span>
           </span>
           <Button
@@ -516,7 +535,7 @@ function BlockedTab() {
                 .then(() => load());
             }}
           >
-            Unblock
+            {t('unblock')}
           </Button>
         </li>
       ))}
@@ -524,7 +543,20 @@ function BlockedTab() {
   );
 }
 
+/**
+ * The literal word the user must type to confirm deletion.
+ *
+ * Deliberately NOT translated. The API compares the submitted value against this exact
+ * string, so a translated sentinel would make the form impossible to complete in that
+ * language — the button would simply never enable. It is interpolated into the label so
+ * a translator can still write a natural sentence around it.
+ */
+const DELETE_CONFIRMATION = 'DELETE';
+
 function AccountTab({ profile }: { profile: ProfileResponse }) {
+  const t = useTranslations('settings.account');
+  const tCommon = useTranslations('common');
+  const format = useFormatter();
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -535,10 +567,11 @@ function AccountTab({ profile }: { profile: ProfileResponse }) {
   if (scheduled) {
     return (
       <div className="rounded-lg border border-warning/40 bg-warning/10 p-5 text-sm">
-        <p className="font-medium text-warning">Your account is scheduled for deletion</p>
+        <p className="font-medium text-warning">{t('scheduledTitle')}</p>
         <p className="mt-2 text-muted">
-          It will be permanently erased on {new Date(scheduled).toLocaleDateString()}. Signing
-          in again before then cancels the request.
+          {t('scheduledBody', {
+            date: format.dateTime(new Date(scheduled), { dateStyle: 'long' }),
+          })}
         </p>
       </div>
     );
@@ -548,46 +581,46 @@ function AccountTab({ profile }: { profile: ProfileResponse }) {
     <section className="space-y-6">
       <dl className="space-y-2 rounded-sm border border-border p-4 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-muted">Username</dt>
+          <dt className="text-muted">{t('username')}</dt>
           <dd>{profile.username}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-muted">Email</dt>
+          <dt className="text-muted">{t('email')}</dt>
           <dd className="text-right">
             {profile.email}
             {!profile.emailVerified && (
               <span className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning">
-                unverified
+                {t('unverified')}
               </span>
             )}
           </dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-muted">Age</dt>
+          <dt className="text-muted">{t('age')}</dt>
           <dd>{profile.age ?? '—'}</dd>
         </div>
       </dl>
 
       <div className="rounded-lg border border-danger/30 p-5">
-        <h2 className="font-medium text-danger">Delete your account</h2>
+        <h2 className="font-medium text-danger">{t('deleteTitle')}</h2>
         <p className="mt-2 text-sm text-muted">
-          Your account is deactivated immediately and permanently erased after 14 days.
-          Signing in during that window cancels it. Reports you filed about other people are
-          kept without any link to you — see{' '}
-          <Link href="/privacy" className="underline underline-offset-4">
-            Privacy
-          </Link>
-          .
+          {t.rich('deleteBody', {
+            link: (chunks) => (
+              <Link href="/privacy" className="underline underline-offset-4">
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
 
         {!confirming ? (
           <Button variant="danger" className="mt-4" onClick={() => setConfirming(true)}>
-            Delete account
+            {t('delete')}
           </Button>
         ) : (
           <div className="mt-4 space-y-3">
             {error && <FormError message={error} />}
-            <Field label="Your password" htmlFor="delete-password">
+            <Field label={t('password')} htmlFor="delete-password">
               <Input
                 id="delete-password"
                 type="password"
@@ -595,7 +628,10 @@ function AccountTab({ profile }: { profile: ProfileResponse }) {
                 onChange={(event) => setPassword(event.target.value)}
               />
             </Field>
-            <Field label="Type DELETE to confirm" htmlFor="delete-confirm">
+            <Field
+              label={t('typeToConfirm', { word: DELETE_CONFIRMATION })}
+              htmlFor="delete-confirm"
+            >
               <Input
                 id="delete-confirm"
                 value={confirmation}
@@ -604,12 +640,12 @@ function AccountTab({ profile }: { profile: ProfileResponse }) {
             </Field>
             <div className="flex gap-3">
               <Button variant="secondary" onClick={() => setConfirming(false)}>
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button
                 variant="danger"
                 loading={busy}
-                disabled={confirmation !== 'DELETE'}
+                disabled={confirmation !== DELETE_CONFIRMATION}
                 onClick={() => {
                   setBusy(true);
                   setError(null);
@@ -621,13 +657,13 @@ function AccountTab({ profile }: { profile: ProfileResponse }) {
                     .then((result) => setScheduled(result.scheduledFor))
                     .catch((caught: unknown) =>
                       setError(
-                        caught instanceof ApiRequestError ? caught.message : 'Could not delete.',
+                        caught instanceof ApiRequestError ? caught.message : t('deleteFailed'),
                       ),
                     )
                     .finally(() => setBusy(false));
                 }}
               >
-                Permanently delete
+                {t('confirmDelete')}
               </Button>
             </div>
           </div>

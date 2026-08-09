@@ -57,6 +57,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Catches a translation that has drifted from the English catalogue — a stale key
+      # after a rename, or a translated placeholder like {nome}, which renders literally
+      # to the reader. Neither breaks the build and neither is visible in English.
+      - name: Check message catalogues
+        run: pnpm i18n:check
+
       - name: Unit tests
         run: pnpm test
 

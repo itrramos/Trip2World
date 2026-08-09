@@ -28,6 +28,7 @@
     "docker:dev": "docker compose -f docker-compose.dev.yml up -d",
     "docker:dev:down": "docker compose -f docker-compose.dev.yml down",
     "secrets:generate": "node infrastructure/scripts/generate-secrets.mjs",
+    "i18n:check": "node infrastructure/scripts/check-messages.mjs",
     "test:integration": "pnpm --filter @trip2world/api test:integration"
   },
   "devDependencies": {

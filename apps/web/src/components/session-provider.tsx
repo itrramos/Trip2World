@@ -1,7 +1,6 @@
 'use client';
 
 import type { SelfProfile } from '@trip2world/types';
-import { useRouter } from 'next/navigation';
 import {
   createContext,
   useCallback,
@@ -13,6 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api, ApiRequestError, refresh, setAccessToken } from '@/lib/api';
+import { usePathname, useRouter } from '@/i18n/navigation';
 
 /**
  * Session state for the whole app.
@@ -143,13 +143,20 @@ export function useSession(): SessionContextValue {
 export function useRequireAuth(): SessionContextValue {
   const session = useSession();
   const router = useRouter();
+  /**
+   * The locale-aware `usePathname` returns the path *without* its locale prefix.
+   *
+   * That is what has to go into `?next=`. `window.location.pathname` would carry the
+   * prefix — `/pt/settings` — and the locale-aware router would prefix it again on the
+   * way back, landing a Portuguese user on `/pt/pt/settings`, which is a 404.
+   */
+  const pathname = usePathname();
 
   useEffect(() => {
     if (session.status === 'unauthenticated') {
-      const next = encodeURIComponent(window.location.pathname);
-      router.replace(`/login?next=${next}`);
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
     }
-  }, [session.status, router]);
+  }, [session.status, router, pathname]);
 
   return session;
 }

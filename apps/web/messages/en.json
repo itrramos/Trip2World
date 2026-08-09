@@ -1,0 +1,481 @@
+{
+  "meta": {
+    "description": "Trip2World connects you with people around the world for spontaneous face-to-face conversations. Meet someone new in seconds.",
+    "tagline": "Meet the world, one conversation at a time."
+  },
+
+  "common": {
+    "skipToContent": "Skip to content",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "createAccount": "Create account",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "close": "Close",
+    "back": "Back",
+    "loading": "Loading…",
+    "networkError": "We could not reach Trip2World. Check your connection and try again.",
+    "emailPlaceholder": "you@example.com",
+    "language": "Language"
+  },
+
+  "nav": {
+    "guidelines": "Community Guidelines",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "safety": "Safety",
+    "settings": "Settings",
+    "discover": "Discover"
+  },
+
+  "landing": {
+    "badge": "Real conversations with real people",
+    "headlineLine1": "Meet the world,",
+    "headlineLine2": "one conversation at a time.",
+    "subhead": "Trip2World pairs you face to face with someone new, anywhere on earth. Talk as long as you like. Move on whenever you want.",
+    "startExploring": "Start Exploring",
+    "howItWorksLink": "How it works",
+    "reassurance": "Free to use · 18+ only · Your camera stays off until you choose to start",
+
+    "countriesLabel": "Countries you can meet people from",
+    "countriesSupported": "{count, plural, one {# country} other {# countries}}",
+    "countriesSuffix": "supported at launch",
+
+    "howItWorksTitle": "Three taps to a conversation",
+    "step": "Step {number}",
+    "steps": {
+      "camera": {
+        "title": "Allow your camera",
+        "body": "One tap. Your video is peer-to-peer — it goes to the person you are talking to, not to a server."
+      },
+      "matched": {
+        "title": "Get matched",
+        "body": "Choose a country, a language, or nothing at all. We find someone available and compatible."
+      },
+      "next": {
+        "title": "Press Next any time",
+        "body": "Not feeling it? One tap ends the call and finds someone new. No explanation needed."
+      }
+    },
+
+    "interestsTitle": "Matched on what you actually care about",
+    "interestsBody": "Pick your interests and we will prioritise people who share them — without ever trapping you in a bubble.",
+
+    "safetyTitle": "Safety is not a feature we added later",
+    "safetyBody": "Talking to strangers only works if the rules are clear and enforced. Here is exactly what we do.",
+    "safety": {
+      "age": {
+        "title": "18+ only, enforced",
+        "body": "Every account is age-gated at signup. The minimum cannot be lowered by configuration."
+      },
+      "report": {
+        "title": "Report in one tap",
+        "body": "Reports go to a human moderation queue. Child-safety and threat reports jump the queue."
+      },
+      "block": {
+        "title": "Block means never again",
+        "body": "Blocking is permanent and mutual. You will not be matched with that person again."
+      },
+      "recording": {
+        "title": "Conversations are not recorded",
+        "body": "We store who spoke to whom and when — never the video, audio, or what was said."
+      }
+    },
+    "guidelinesPrompt": "Read the <link>Community Guidelines</link> before you start.",
+
+    "faqTitle": "Questions, answered",
+    "faq": {
+      "free": {
+        "q": "Is Trip2World free?",
+        "a": "Yes. Matching, video, text chat, reporting and blocking are all free and always will be. Safety features are never behind a paywall."
+      },
+      "recording": {
+        "q": "Do you record calls?",
+        "a": "No. We keep metadata about a conversation — the participants, when it started, how it ended — so that abuse reports can be investigated. The conversation itself is peer-to-peer and is never captured."
+      },
+      "details": {
+        "q": "Who can see my details?",
+        "a": "The person you are matched with sees your username, and only the details you choose to share: country, an age range, languages, interests. Never your exact age, email, or location beyond the country."
+      },
+      "next": {
+        "q": "What happens when I press Next?",
+        "a": "The call ends immediately for both of you, and you go straight back into matching. You will not be paired with the same person again while other people are available."
+      },
+      "mobile": {
+        "q": "Can I use Trip2World on my phone?",
+        "a": "Yes — the web app works in a mobile browser and can be installed to your home screen."
+      }
+    },
+
+    "finalCta": "Someone interesting is one tap away"
+  },
+
+  "media": {
+    "PERMISSION_DENIED": {
+      "title": "Trip2World needs your camera and microphone",
+      "body": "Video chat cannot work without them. Click the camera icon in your browser's address bar and allow access, then try again."
+    },
+    "NO_DEVICE": {
+      "title": "No camera or microphone found",
+      "body": "Connect a camera and microphone, then try again. If they are already connected, check they are enabled in your system settings."
+    },
+    "DEVICE_BUSY": {
+      "title": "Your camera is being used by another app",
+      "body": "Close any other app using the camera — a video call, or another browser tab — then try again."
+    },
+    "INSECURE_CONTEXT": {
+      "title": "This page is not secure",
+      "body": "Browsers only allow camera access over HTTPS. Open Trip2World using an https:// address."
+    },
+    "UNSUPPORTED": {
+      "title": "This browser cannot do video chat",
+      "body": "Try a recent version of Chrome, Edge, Firefox or Safari."
+    },
+    "OVERCONSTRAINED": {
+      "title": "Your camera does not support the required settings",
+      "body": "We will try again with basic settings."
+    },
+    "UNKNOWN": {
+      "title": "We could not start your camera",
+      "body": "Something went wrong reaching your camera or microphone. Try again."
+    }
+  },
+
+  "discover": {
+    "tokensLabel": "tokens — open token settings",
+    "settings": "Settings",
+    "tryAgain": "Try again",
+    "backToHome": "Back to home",
+
+    "permissionsTitle": "Allow your camera",
+    "permissionsBody": "Your browser will ask for permission. Nothing is shared until you start.",
+    "readyTitle": "Ready when you are",
+    "readyBody": "Hi {name} — press Start to meet someone new.",
+    "readyFallbackName": "there",
+    "start": "Start Exploring",
+
+    "searchHints": {
+      "0": "Finding someone around the world…",
+      "1": "Looking for a good match…",
+      "2": "Widening the search…",
+      "3": "Almost there…"
+    },
+    "connectingToServer": "Connecting to Trip2World…",
+    "connectingToServerBody": "Waiting for the server to confirm your place in the queue.",
+    "aloneTitle": "Nobody else is here right now",
+    "aloneBody": "You are the only person searching. Stay here and we will pair you the moment someone joins.",
+    "searchingFor": "Searching for {duration}",
+    "searchingCount": "{count} searching",
+
+    "partnerLeftTitle": "Your partner left the conversation",
+    "partnerLeftBody": "That happens — press Next to meet someone else.",
+    "findSomeoneNew": "Find someone new",
+    "stop": "Stop",
+
+    "connecting": "Connecting…",
+    "reconnecting": "Reconnecting…",
+
+    "errors": {
+      "cameraSwitch": {
+        "title": "Could not switch camera",
+        "body": "The other camera is unavailable right now. It may be in use by another app."
+      },
+      "disconnected": {
+        "title": "Cannot reach Trip2World",
+        "body": "We lost the connection to our servers. Retrying…"
+      },
+      "banned": { "title": "Your account is restricted", "body": "Contact support if you believe this is a mistake." },
+      "suspended": { "title": "Your account is suspended", "body": "Your account is temporarily restricted." },
+      "generic": { "title": "Something went wrong", "body": "Please try again." }
+    },
+
+    "quality": {
+      "label": "Connection: {quality}",
+      "srLabel": "Connection quality:",
+      "EXCELLENT": "Excellent",
+      "GOOD": "Good",
+      "FAIR": "Fair",
+      "POOR": "Poor",
+      "UNKNOWN": "Checking"
+    },
+
+    "controls": {
+      "zoom": "Camera zoom",
+      "muteMicrophone": "Mute microphone",
+      "unmuteMicrophone": "Unmute microphone",
+      "cameraOff": "Turn camera off",
+      "cameraOn": "Turn camera on",
+      "switchCamera": "Switch camera",
+      "next": "Next",
+      "tip": "Send a tip",
+      "block": "Block this person",
+      "report": "Report this person",
+      "endCall": "End conversation",
+      "leave": "Leave"
+    },
+
+    "blockDialog": {
+      "title": "Block {name}?",
+      "body": "You will never be matched with them again, and this cannot be undone from inside a call. The conversation ends now.",
+      "confirm": "Block"
+    },
+
+    "reportDialog": {
+      "title": "Report {name}",
+      "subtitle": "The conversation will end and you will not be matched with them again.",
+      "legend": "Reason for reporting",
+      "detailsPlaceholder": "Anything else our moderators should know? (optional)",
+      "submit": "Send report",
+      "categories": {
+        "NUDITY": "Nudity or sexual content",
+        "HARASSMENT": "Harassment",
+        "HATE": "Hate or abusive behaviour",
+        "UNDERAGE": "They appear to be under 18",
+        "VIOLENCE": "Violence or threats",
+        "SPAM": "Spam",
+        "SCAM": "Scam",
+        "IMPERSONATION": "Impersonation",
+        "OTHER": "Something else"
+      }
+    }
+  },
+
+  "settings": {
+    "title": "Settings",
+    "tokens": "Tokens",
+    "loadFailed": "Could not load your settings.",
+    "saveFailed": "Could not save. Check your connection.",
+    "tabs": {
+      "profile": "Profile",
+      "privacy": "Privacy",
+      "matching": "Matching",
+      "blocked": "Blocked",
+      "account": "Account"
+    },
+
+    "profile": {
+      "displayName": "Display name",
+      "displayNameHint": "What other people see. Leave blank to use your username.",
+      "bio": "Bio",
+      "country": "Country",
+      "gender": "Gender",
+      "genders": {
+        "UNSPECIFIED": "Prefer not to say",
+        "FEMALE": "Female",
+        "MALE": "Male",
+        "NON_BINARY": "Non-binary",
+        "OTHER": "Other"
+      },
+      "languageHint": "The language Trip2World is shown in. Saved to your account, so it follows you between devices.",
+      "interests": "Interests",
+      "counter": "({chosen}/{max})",
+      "save": "Save profile",
+      "saved": "Profile saved"
+    },
+
+    "privacy": {
+      "intro": "These control what the person you are matched with can see. Your username is always visible so that reporting and blocking cannot be defeated.",
+      "showDisplayName": "Show my display name",
+      "showDisplayNameHint": "Otherwise people see your username.",
+      "showCountry": "Show my country",
+      "showCountryHint": "Country only — never your city.",
+      "showAgeBracket": "Show my age range",
+      "showAgeBracketHint": "A range such as 25–34, never your exact age.",
+      "showGender": "Show my gender",
+      "showInterests": "Show my interests",
+      "showBio": "Show my bio",
+      "allowConnectionRequests": "Allow connection requests",
+      "allowConnectionRequestsHint": "People you have talked to can ask to stay in touch.",
+      "save": "Save privacy",
+      "saved": "Privacy updated"
+    },
+
+    "matching": {
+      "wantToMeet": "I want to meet",
+      "anyone": "Anyone",
+      "women": "Women",
+      "men": "Men",
+      "preferredCountries": "Preferred countries",
+      "counter": "({chosen}/{max})",
+      "relaxationHint": "We try these first. If nobody is available we widen the search rather than leave you waiting.",
+      "autoRequeue": "Find someone new automatically when a conversation ends",
+      "startMuted": "Start conversations muted",
+      "startCameraOff": "Start conversations with my camera off",
+      "save": "Save preferences",
+      "saved": "Matching preferences saved"
+    },
+
+    "blocked": {
+      "emptyTitle": "You have not blocked anyone",
+      "emptyBody": "Blocking someone means you will never be matched with them again.",
+      "blockedOn": "Blocked {date}",
+      "unblock": "Unblock"
+    },
+
+    "account": {
+      "username": "Username",
+      "email": "Email",
+      "unverified": "unverified",
+      "age": "Age",
+      "deleteTitle": "Delete your account",
+      "deleteBody": "Your account is deactivated immediately and permanently erased after 14 days. Signing in during that window cancels it. Reports you filed about other people are kept without any link to you — see <link>Privacy</link>.",
+      "delete": "Delete account",
+      "password": "Your password",
+      "typeToConfirm": "Type {word} to confirm",
+      "confirmDelete": "Permanently delete",
+      "deleteFailed": "Could not delete.",
+      "scheduledTitle": "Your account is scheduled for deletion",
+      "scheduledBody": "It will be permanently erased on {date}. Signing in again before then cancels the request."
+    }
+  },
+
+  "tokens": {
+    "title": "Tokens",
+    "loadFailed": "Could not load your token balance.",
+    "checkoutFailed": "Could not start checkout.",
+    "purchaseSuccess": "Payment received. Your balance updates within a few seconds.",
+    "purchaseCancelled": "Checkout cancelled. Nothing was charged.",
+    "yourBalance": "Your balance",
+    "lifetime": "{purchased} purchased · {earned} received from tips",
+    "buyTitle": "Buy tokens",
+    "buyUnavailable": "Buying tokens is not available on this deployment yet.",
+    "packageUnit": "tokens",
+    "disclaimer": "Tokens have no cash value and cannot be withdrawn. Tips are final and cannot be refunded once sent. See the <link>Terms</link>.",
+    "historyTitle": "History",
+    "historyEmpty": "Nothing yet.",
+    "kinds": {
+      "PURCHASE": "Tokens purchased",
+      "TIP_SENT": "Tip sent",
+      "TIP_RECEIVED": "Tip received",
+      "REFUND": "Refund",
+      "ADJUSTMENT": "Adjustment",
+      "PROMO": "Promotional credit"
+    }
+  },
+
+  "tips": {
+    "dialogTitle": "Send {name} a tip",
+    "balanceLoading": "Loading balance…",
+    "balanceAvailable": "{count, plural, one {# token available} other {# tokens available}}",
+    "amount": "Amount",
+    "offerTime": "Offer extra time",
+    "noTimeOffer": "No time offer",
+    "plusMinutes": "+{minutes} minutes",
+    "offerCaveat": "{name} can accept or decline. Either way they keep the tokens, and either of you can still leave at any time.",
+    "messageLabel": "Message (optional)",
+    "messagePlaceholder": "Say something nice",
+    "insufficient": "Not enough tokens.",
+    "topUp": "Top up",
+    "nonRefundable": "Tips are final and cannot be refunded.",
+    "send": "Send {amount}",
+
+    "offerTitle": "{name} sent you {count, plural, one {# token} other {# tokens}}",
+    "offerBody": "They would like to keep talking for another {minutes, plural, one {# minute} other {# minutes}}.",
+    "offerFree": "The tokens are yours either way. You can decline, and you can still leave at any time.",
+    "decline": "Decline",
+    "keepTalking": "Keep talking",
+
+    "toastSent": "You sent {count, plural, one {# token} other {# tokens}}",
+    "toastReceived": "{name} sent you {count, plural, one {# token} other {# tokens}}"
+  },
+
+  "legal": {
+    "backTo": "Back to {app}",
+    "lastUpdated": "Last updated {date}",
+    "questions": "Questions about this document? Contact the operator of this Trip2World deployment.",
+    "englishOnlyTitle": "This document is only available in English.",
+    "englishOnlyBody": "Legal text is not machine-translated here. A mistranslated Terms of Service or Privacy Policy is worse than one you have to read in a second language, because it may not say what it appears to say — and it is the English version that governs. The rest of Trip2World is in your language.",
+    "reviewNoticeTitle": "Operator note — remove before launch.",
+    "reviewNoticeBody": "This document describes how this software actually behaves, but it has not been reviewed by a lawyer and is not legal advice. Have it reviewed against the law where you operate and where your users are, particularly GDPR if you serve the EU/UK."
+  },
+
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to start meeting people.",
+      "footerPrompt": "New to Trip2World?",
+      "footerAction": "Create an account",
+      "email": "Email",
+      "password": "Password",
+      "passwordPlaceholder": "Your password",
+      "forgot": "Forgot your password?",
+      "submit": "Sign in",
+      "rateLimited": "Too many attempts. Try again in {minutes, plural, one {# minute} other {# minutes}}."
+    },
+
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Free, and you must be {age} or over.",
+      "footerPrompt": "Already have an account?",
+      "footerAction": "Sign in",
+      "email": "Email",
+      "username": "Username",
+      "usernameHint": "Lowercase letters, numbers and underscores. This is what other people see.",
+      "usernamePlaceholder": "ana_pt",
+      "password": "Password",
+      "passwordHint": "At least {min} characters. A short phrase works well.",
+      "confirmPassword": "Confirm password",
+      "birthDate": "Date of birth",
+      "birthDateHint": "Only ever shown to you. Others see an age range.",
+      "country": "Country",
+      "countryPlaceholder": "Select your country",
+      "consent": "I am {age} or older and I accept the <terms>Terms</terms> and <guidelines>Community Guidelines</guidelines>.",
+      "submit": "Create account",
+      "checkEmailTitle": "Check your email",
+      "checkEmailSubtitle": "One more step before you can start.",
+      "checkEmailBody": "We sent a confirmation link to <strong>{email}</strong>. Open it to activate your account.",
+      "checkEmailSpam": "Nothing arrived? Check your spam folder — the link expires in 24 hours.",
+      "backToSignIn": "Back to sign in"
+    },
+
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "We will email you a link to set a new one.",
+      "email": "Email",
+      "submit": "Send reset link",
+      "backToSignIn": "Back to sign in",
+      "sentTitle": "Check your email",
+      "sentSubtitle": "If we found an account, a reset link is on its way.",
+      "sentBody": "We sent a link to <strong>{email}</strong> if an account exists for it. The link expires in one hour and can only be used once."
+    },
+
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Make it something you have not used elsewhere.",
+      "password": "New password",
+      "passwordHint": "At least {min} characters. A short phrase works well.",
+      "confirmPassword": "Confirm new password",
+      "submit": "Change password",
+      "backToSignIn": "Back to sign in",
+      "noTokenTitle": "This link is incomplete",
+      "noTokenSubtitle": "Open the link from your email directly.",
+      "noTokenBody": "The reset link is missing its token. Copying only part of the URL is the usual cause.",
+      "requestNew": "Request a new link",
+      "doneTitle": "Password changed",
+      "doneSubtitle": "Every other device has been signed out.",
+      "doneBody": "For your safety, resetting a password ends every existing session — including anyone else who had access."
+    },
+
+    "verify": {
+      "workingTitle": "Confirming your email",
+      "workingSubtitle": "This will only take a moment.",
+      "workingBody": "Checking your link…",
+      "successTitle": "Email confirmed",
+      "successSubtitle": "Your account is ready.",
+      "successBody": "You can now start meeting people.",
+      "backToHome": "Back to home",
+      "expiredTitle": "This link has expired",
+      "expiredSubtitle": "Confirmation links are valid for 24 hours.",
+      "expiredBody": "Request a new confirmation email and try again.",
+      "failedTitle": "We could not confirm that link",
+      "failedSubtitle": "The link may have already been used.",
+      "missingBody": "That link is incomplete. Open the link from your email directly rather than copying part of it.",
+      "backToSignIn": "Back to sign in",
+      "resendLabel": "Send a new link",
+      "resendSubmit": "Resend confirmation email",
+      "resendSent": "If that address still needs confirming, a new link is on its way."
+    }
+  }
+}

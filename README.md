@@ -215,6 +215,7 @@ Works with no Stripe keys configured — the catalogue renders as unavailable.
 | [MATCHMAKING](docs/MATCHMAKING.md) | Rules, relaxation, double-booking prevention |
 | [SECURITY](docs/SECURITY.md) | Threat model, controls, known gaps |
 | [MODERATION](docs/MODERATION.md) | Queue, outcomes, operational guidance |
+| [I18N](docs/I18N.md) | Adding a language, translator rules, what stays English |
 | [MOBILE](docs/MOBILE.md) | PWA state, and what native would require |
 | [BACKUP_RESTORE](docs/BACKUP_RESTORE.md) | Procedures and verification |
 
@@ -226,8 +227,10 @@ Working and deployed: registration, email verification, password reset, matchmak
 two-way WebRTC video, skip/rematch, text chat, reporting, blocking, the moderation panel,
 the token economy and tipping, profile and privacy settings.
 
-Not built: native mobile apps, OAuth sign-in, connections/friends, internationalisation
-(six locales are modelled but no catalogue exists), creator payouts.
+The interface is translatable and ships in English and Portuguese; four more locales route
+but are untranslated. See [I18N](docs/I18N.md).
+
+Not built: native mobile apps, OAuth sign-in, connections/friends, creator payouts.
 
 The legal pages in `apps/web/src/app/{terms,privacy,guidelines,safety}` accurately describe
 how the software behaves but **have not been reviewed by a lawyer**. Each carries a visible

@@ -1,0 +1,487 @@
+{
+  "meta": {
+    "description": "O Trip2World liga-te a pessoas de todo o mundo para conversas espontâneas cara a cara. Conhece alguém novo em segundos.",
+    "tagline": "Conhece o mundo, uma conversa de cada vez."
+  },
+
+  "common": {
+    "skipToContent": "Saltar para o conteúdo",
+    "signIn": "Entrar",
+    "signOut": "Sair",
+    "createAccount": "Criar conta",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "saving": "A guardar…",
+    "saved": "Guardado",
+    "close": "Fechar",
+    "back": "Voltar",
+    "loading": "A carregar…",
+    "networkError": "Não foi possível contactar o Trip2World. Verifica a tua ligação e tenta novamente.",
+    "emailPlaceholder": "tu@exemplo.com",
+    "language": "Idioma"
+  },
+
+  "nav": {
+    "guidelines": "Regras da Comunidade",
+    "terms": "Termos",
+    "privacy": "Privacidade",
+    "safety": "Segurança",
+    "settings": "Definições",
+    "discover": "Descobrir"
+  },
+
+  "landing": {
+    "badge": "Conversas reais com pessoas reais",
+    "headlineLine1": "Conhece o mundo,",
+    "headlineLine2": "uma conversa de cada vez.",
+    "subhead": "O Trip2World põe-te cara a cara com alguém novo, em qualquer parte do mundo. Fala o tempo que quiseres. Segue em frente quando quiseres.",
+    "startExploring": "Começar a explorar",
+    "howItWorksLink": "Como funciona",
+    "reassurance": "Gratuito · Apenas maiores de 18 · A tua câmara só liga quando decidires começar",
+
+    "countriesLabel": "Países de onde podes conhecer pessoas",
+    "countriesSupported": "{count, plural, one {# país} other {# países}}",
+    "countriesSuffix": "disponíveis no lançamento",
+
+    "howItWorksTitle": "Três toques até uma conversa",
+    "step": "Passo {number}",
+    "steps": {
+      "camera": {
+        "title": "Permite o acesso à câmara",
+        "body": "Um toque. O teu vídeo é ponto a ponto — vai para a pessoa com quem falas, não para um servidor."
+      },
+      "matched": {
+        "title": "Encontra alguém",
+        "body": "Escolhe um país, um idioma, ou nada. Encontramos alguém disponível e compatível."
+      },
+      "next": {
+        "title": "Carrega em Seguinte quando quiseres",
+        "body": "Não está a correr bem? Um toque termina a chamada e encontra outra pessoa. Sem explicações."
+      }
+    },
+
+    "interestsTitle": "Ligados pelo que realmente te interessa",
+    "interestsBody": "Escolhe os teus interesses e damos prioridade a quem os partilha — sem nunca te fechar numa bolha.",
+
+    "safetyTitle": "A segurança não é algo que acrescentámos depois",
+    "safetyBody": "Falar com desconhecidos só resulta se as regras forem claras e aplicadas. É exatamente isto que fazemos.",
+    "safety": {
+      "age": {
+        "title": "Apenas maiores de 18, sem exceções",
+        "body": "Todas as contas passam por verificação de idade no registo. O mínimo não pode ser reduzido por configuração."
+      },
+      "report": {
+        "title": "Denuncia com um toque",
+        "body": "As denúncias vão para uma fila revista por pessoas. Casos de menores e ameaças passam à frente."
+      },
+      "block": {
+        "title": "Bloquear significa nunca mais",
+        "body": "O bloqueio é permanente e mútuo. Nunca mais serás ligado a essa pessoa."
+      },
+      "recording": {
+        "title": "As conversas não são gravadas",
+        "body": "Guardamos quem falou com quem e quando — nunca o vídeo, o áudio, ou o que foi dito."
+      }
+    },
+    "guidelinesPrompt": "Lê as <link>Regras da Comunidade</link> antes de começar.",
+
+    "faqTitle": "Perguntas, respondidas",
+    "faq": {
+      "free": {
+        "q": "O Trip2World é gratuito?",
+        "a": "Sim. Encontrar pessoas, vídeo, chat, denunciar e bloquear são gratuitos e sempre serão. As funcionalidades de segurança nunca estão atrás de um pagamento."
+      },
+      "recording": {
+        "q": "Gravam as chamadas?",
+        "a": "Não. Guardamos metadados sobre a conversa — os participantes, quando começou, como terminou — para que as denúncias possam ser investigadas. A conversa em si é ponto a ponto e nunca é captada."
+      },
+      "details": {
+        "q": "Quem pode ver os meus dados?",
+        "a": "A pessoa com quem falas vê o teu nome de utilizador e apenas o que escolheres partilhar: país, um intervalo de idade, idiomas, interesses. Nunca a tua idade exata, o teu email, ou a tua localização para além do país."
+      },
+      "next": {
+        "q": "O que acontece quando carrego em Seguinte?",
+        "a": "A chamada termina imediatamente para ambos e voltas de imediato à procura. Não voltarás a ser ligado à mesma pessoa enquanto houver outras disponíveis."
+      },
+      "mobile": {
+        "q": "Posso usar o Trip2World no telemóvel?",
+        "a": "Sim — a aplicação web funciona no browser do telemóvel e pode ser instalada no ecrã principal."
+      }
+    },
+
+    "finalCta": "Alguém interessante está a um toque de distância"
+  },
+
+  "media": {
+    "PERMISSION_DENIED": {
+      "title": "O Trip2World precisa da tua câmara e microfone",
+      "body": "O vídeo não funciona sem eles. Clica no ícone da câmara na barra de endereço do browser, permite o acesso e tenta novamente."
+    },
+    "NO_DEVICE": {
+      "title": "Não encontrámos câmara nem microfone",
+      "body": "Liga uma câmara e um microfone e tenta novamente. Se já estiverem ligados, verifica se estão ativos nas definições do sistema."
+    },
+    "DEVICE_BUSY": {
+      "title": "A tua câmara está a ser usada por outra aplicação",
+      "body": "Fecha qualquer outra aplicação que esteja a usar a câmara — uma videochamada, ou outro separador — e tenta novamente."
+    },
+    "INSECURE_CONTEXT": {
+      "title": "Esta página não é segura",
+      "body": "Os browsers só permitem o acesso à câmara através de HTTPS. Abre o Trip2World num endereço https://."
+    },
+    "UNSUPPORTED": {
+      "title": "Este browser não suporta videochamadas",
+      "body": "Experimenta uma versão recente do Chrome, Edge, Firefox ou Safari."
+    },
+    "OVERCONSTRAINED": {
+      "title": "A tua câmara não suporta as definições necessárias",
+      "body": "Vamos tentar novamente com definições básicas."
+    },
+    "UNKNOWN": {
+      "title": "Não conseguimos iniciar a tua câmara",
+      "body": "Algo correu mal ao aceder à câmara ou ao microfone. Tenta novamente."
+    }
+  },
+
+  "discover": {
+    "tokensLabel": "tokens — abrir definições de tokens",
+    "settings": "Definições",
+    "tryAgain": "Tentar novamente",
+    "backToHome": "Voltar ao início",
+
+    "permissionsTitle": "Permite o acesso à câmara",
+    "permissionsBody": "O teu browser vai pedir permissão. Nada é partilhado até começares.",
+    "readyTitle": "Quando quiseres",
+    "readyBody": "Olá {name} — carrega em Começar para conheceres alguém novo.",
+    "readyFallbackName": "a todos",
+    "start": "Começar a explorar",
+
+    "searchHints": {
+      "0": "À procura de alguém pelo mundo fora…",
+      "1": "À procura de uma boa ligação…",
+      "2": "A alargar a pesquisa…",
+      "3": "Está quase…"
+    },
+    "connectingToServer": "A ligar ao Trip2World…",
+    "connectingToServerBody": "À espera que o servidor confirme o teu lugar na fila.",
+    "aloneTitle": "Não há mais ninguém por aqui neste momento",
+    "aloneBody": "És a única pessoa à procura. Fica por aqui e ligamos-te assim que alguém entrar.",
+    "searchingFor": "À procura há {duration}",
+    "searchingCount": "{count} à procura",
+
+    "partnerLeftTitle": "A outra pessoa saiu da conversa",
+    "partnerLeftBody": "Acontece — carrega em Seguinte para conheceres outra pessoa.",
+    "findSomeoneNew": "Encontrar outra pessoa",
+    "stop": "Parar",
+
+    "connecting": "A ligar…",
+    "reconnecting": "A restabelecer a ligação…",
+
+    "errors": {
+      "cameraSwitch": {
+        "title": "Não foi possível mudar de câmara",
+        "body": "A outra câmara não está disponível neste momento. Pode estar a ser usada por outra aplicação."
+      },
+      "disconnected": {
+        "title": "Não conseguimos contactar o Trip2World",
+        "body": "Perdemos a ligação aos nossos servidores. A tentar novamente…"
+      },
+      "banned": {
+        "title": "A tua conta está restringida",
+        "body": "Contacta o suporte se achas que isto é um engano."
+      },
+      "suspended": {
+        "title": "A tua conta está suspensa",
+        "body": "A tua conta está temporariamente restringida."
+      },
+      "generic": { "title": "Algo correu mal", "body": "Tenta novamente." }
+    },
+
+    "quality": {
+      "label": "Ligação: {quality}",
+      "srLabel": "Qualidade da ligação:",
+      "EXCELLENT": "Excelente",
+      "GOOD": "Boa",
+      "FAIR": "Razoável",
+      "POOR": "Fraca",
+      "UNKNOWN": "A verificar"
+    },
+
+    "controls": {
+      "zoom": "Zoom da câmara",
+      "muteMicrophone": "Desligar o microfone",
+      "unmuteMicrophone": "Ligar o microfone",
+      "cameraOff": "Desligar a câmara",
+      "cameraOn": "Ligar a câmara",
+      "switchCamera": "Mudar de câmara",
+      "next": "Seguinte",
+      "tip": "Enviar uma gorjeta",
+      "block": "Bloquear esta pessoa",
+      "report": "Denunciar esta pessoa",
+      "endCall": "Terminar a conversa",
+      "leave": "Sair"
+    },
+
+    "blockDialog": {
+      "title": "Bloquear {name}?",
+      "body": "Nunca mais serão ligados um ao outro, e isto não pode ser desfeito a partir de uma chamada. A conversa termina agora.",
+      "confirm": "Bloquear"
+    },
+
+    "reportDialog": {
+      "title": "Denunciar {name}",
+      "subtitle": "A conversa termina e não voltarão a ser ligados.",
+      "legend": "Motivo da denúncia",
+      "detailsPlaceholder": "Mais alguma coisa que a moderação deva saber? (opcional)",
+      "submit": "Enviar denúncia",
+      "categories": {
+        "NUDITY": "Nudez ou conteúdo sexual",
+        "HARASSMENT": "Assédio",
+        "HATE": "Ódio ou comportamento abusivo",
+        "UNDERAGE": "Parece ser menor de 18 anos",
+        "VIOLENCE": "Violência ou ameaças",
+        "SPAM": "Spam",
+        "SCAM": "Burla",
+        "IMPERSONATION": "Falsa identidade",
+        "OTHER": "Outra coisa"
+      }
+    }
+  },
+
+  "settings": {
+    "title": "Definições",
+    "tokens": "Tokens",
+    "loadFailed": "Não foi possível carregar as tuas definições.",
+    "saveFailed": "Não foi possível guardar. Verifica a tua ligação.",
+    "tabs": {
+      "profile": "Perfil",
+      "privacy": "Privacidade",
+      "matching": "Ligações",
+      "blocked": "Bloqueados",
+      "account": "Conta"
+    },
+
+    "profile": {
+      "displayName": "Nome a mostrar",
+      "displayNameHint": "O que as outras pessoas veem. Deixa em branco para usar o teu nome de utilizador.",
+      "bio": "Sobre ti",
+      "country": "País",
+      "gender": "Género",
+      "genders": {
+        "UNSPECIFIED": "Prefiro não dizer",
+        "FEMALE": "Feminino",
+        "MALE": "Masculino",
+        "NON_BINARY": "Não binário",
+        "OTHER": "Outro"
+      },
+      "languageHint": "O idioma em que o Trip2World é apresentado. Fica guardado na tua conta, por isso acompanha-te entre dispositivos.",
+      "interests": "Interesses",
+      "counter": "({chosen}/{max})",
+      "save": "Guardar perfil",
+      "saved": "Perfil guardado"
+    },
+
+    "privacy": {
+      "intro": "Estas opções controlam o que a pessoa com quem falas pode ver. O teu nome de utilizador está sempre visível para que denunciar e bloquear não possam ser contornados.",
+      "showDisplayName": "Mostrar o meu nome",
+      "showDisplayNameHint": "Caso contrário, as pessoas veem o teu nome de utilizador.",
+      "showCountry": "Mostrar o meu país",
+      "showCountryHint": "Apenas o país — nunca a tua cidade.",
+      "showAgeBracket": "Mostrar o meu intervalo de idade",
+      "showAgeBracketHint": "Um intervalo como 25–34, nunca a tua idade exata.",
+      "showGender": "Mostrar o meu género",
+      "showInterests": "Mostrar os meus interesses",
+      "showBio": "Mostrar o que escrevi sobre mim",
+      "allowConnectionRequests": "Permitir pedidos de contacto",
+      "allowConnectionRequestsHint": "Pessoas com quem já falaste podem pedir para manter o contacto.",
+      "save": "Guardar privacidade",
+      "saved": "Privacidade atualizada"
+    },
+
+    "matching": {
+      "wantToMeet": "Quero conhecer",
+      "anyone": "Qualquer pessoa",
+      "women": "Mulheres",
+      "men": "Homens",
+      "preferredCountries": "Países preferidos",
+      "counter": "({chosen}/{max})",
+      "relaxationHint": "Tentamos estes primeiro. Se não houver ninguém disponível, alargamos a pesquisa em vez de te deixar à espera.",
+      "autoRequeue": "Procurar alguém novo automaticamente quando uma conversa termina",
+      "startMuted": "Começar as conversas com o microfone desligado",
+      "startCameraOff": "Começar as conversas com a câmara desligada",
+      "save": "Guardar preferências",
+      "saved": "Preferências guardadas"
+    },
+
+    "blocked": {
+      "emptyTitle": "Ainda não bloqueaste ninguém",
+      "emptyBody": "Bloquear alguém significa que nunca mais serão ligados um ao outro.",
+      "blockedOn": "Bloqueado a {date}",
+      "unblock": "Desbloquear"
+    },
+
+    "account": {
+      "username": "Nome de utilizador",
+      "email": "Email",
+      "unverified": "por confirmar",
+      "age": "Idade",
+      "deleteTitle": "Eliminar a tua conta",
+      "deleteBody": "A tua conta é desativada de imediato e apagada definitivamente ao fim de 14 dias. Entrar durante esse período cancela o pedido. As denúncias que fizeste sobre outras pessoas são mantidas sem qualquer ligação a ti — vê a <link>Privacidade</link>.",
+      "delete": "Eliminar conta",
+      "password": "A tua palavra-passe",
+      "typeToConfirm": "Escreve {word} para confirmar",
+      "confirmDelete": "Eliminar definitivamente",
+      "deleteFailed": "Não foi possível eliminar.",
+      "scheduledTitle": "A tua conta está marcada para eliminação",
+      "scheduledBody": "Será apagada definitivamente a {date}. Entrar antes dessa data cancela o pedido."
+    }
+  },
+
+  "tokens": {
+    "title": "Tokens",
+    "loadFailed": "Não foi possível carregar o teu saldo de tokens.",
+    "checkoutFailed": "Não foi possível iniciar o pagamento.",
+    "purchaseSuccess": "Pagamento recebido. O teu saldo é atualizado dentro de alguns segundos.",
+    "purchaseCancelled": "Pagamento cancelado. Não foi cobrado nada.",
+    "yourBalance": "O teu saldo",
+    "lifetime": "{purchased} comprados · {earned} recebidos em gorjetas",
+    "buyTitle": "Comprar tokens",
+    "buyUnavailable": "A compra de tokens ainda não está disponível nesta instalação.",
+    "packageUnit": "tokens",
+    "disclaimer": "Os tokens não têm valor monetário e não podem ser levantados. As gorjetas são definitivas e não podem ser reembolsadas depois de enviadas. Vê os <link>Termos</link>.",
+    "historyTitle": "Histórico",
+    "historyEmpty": "Ainda não há nada.",
+    "kinds": {
+      "PURCHASE": "Tokens comprados",
+      "TIP_SENT": "Gorjeta enviada",
+      "TIP_RECEIVED": "Gorjeta recebida",
+      "REFUND": "Reembolso",
+      "ADJUSTMENT": "Ajuste",
+      "PROMO": "Crédito promocional"
+    }
+  },
+
+  "tips": {
+    "dialogTitle": "Enviar uma gorjeta a {name}",
+    "balanceLoading": "A carregar o saldo…",
+    "balanceAvailable": "{count, plural, one {# token disponível} other {# tokens disponíveis}}",
+    "amount": "Quantia",
+    "offerTime": "Oferecer mais tempo",
+    "noTimeOffer": "Sem oferta de tempo",
+    "plusMinutes": "+{minutes} minutos",
+    "offerCaveat": "{name} pode aceitar ou recusar. De qualquer forma fica com os tokens, e qualquer um de vocês pode sair a qualquer momento.",
+    "messageLabel": "Mensagem (opcional)",
+    "messagePlaceholder": "Diz algo simpático",
+    "insufficient": "Tokens insuficientes.",
+    "topUp": "Carregar",
+    "nonRefundable": "As gorjetas são definitivas e não podem ser reembolsadas.",
+    "send": "Enviar {amount}",
+
+    "offerTitle": "{name} enviou-te {count, plural, one {# token} other {# tokens}}",
+    "offerBody": "Gostaria de continuar a conversa por mais {minutes, plural, one {# minuto} other {# minutos}}.",
+    "offerFree": "Os tokens são teus de qualquer forma. Podes recusar, e podes sair a qualquer momento.",
+    "decline": "Recusar",
+    "keepTalking": "Continuar a falar",
+
+    "toastSent": "Enviaste {count, plural, one {# token} other {# tokens}}",
+    "toastReceived": "{name} enviou-te {count, plural, one {# token} other {# tokens}}"
+  },
+
+  "legal": {
+    "backTo": "Voltar ao {app}",
+    "lastUpdated": "Última atualização: {date}",
+    "questions": "Dúvidas sobre este documento? Contacta quem gere esta instalação do Trip2World.",
+    "englishOnlyTitle": "Este documento só está disponível em inglês.",
+    "englishOnlyBody": "Os textos legais não são traduzidos automaticamente aqui. Uns Termos de Serviço ou uma Política de Privacidade mal traduzidos são piores do que ter de os ler numa segunda língua, porque podem não dizer o que parecem dizer — e é a versão inglesa que prevalece. O resto do Trip2World está no teu idioma.",
+    "reviewNoticeTitle": "Nota para quem gere o serviço — remover antes do lançamento.",
+    "reviewNoticeBody": "Este documento descreve o comportamento real do software, mas não foi revisto por um advogado e não constitui aconselhamento jurídico. Manda revê-lo à luz da lei do local onde operas e onde estão os teus utilizadores, em especial o RGPD se serves a UE/Reino Unido."
+  },
+
+  "auth": {
+    "login": {
+      "title": "Bem-vindo de volta",
+      "subtitle": "Entra para começares a conhecer pessoas.",
+      "footerPrompt": "Novo no Trip2World?",
+      "footerAction": "Criar uma conta",
+      "email": "Email",
+      "password": "Palavra-passe",
+      "passwordPlaceholder": "A tua palavra-passe",
+      "forgot": "Esqueceste-te da palavra-passe?",
+      "submit": "Entrar",
+      "rateLimited": "Demasiadas tentativas. Tenta novamente dentro de {minutes, plural, one {# minuto} other {# minutos}}."
+    },
+
+    "register": {
+      "title": "Cria a tua conta",
+      "subtitle": "Gratuito, e tens de ter {age} anos ou mais.",
+      "footerPrompt": "Já tens conta?",
+      "footerAction": "Entrar",
+      "email": "Email",
+      "username": "Nome de utilizador",
+      "usernameHint": "Letras minúsculas, números e underscores. É isto que as outras pessoas veem.",
+      "usernamePlaceholder": "ana_pt",
+      "password": "Palavra-passe",
+      "passwordHint": "Pelo menos {min} caracteres. Uma frase curta funciona bem.",
+      "confirmPassword": "Confirmar palavra-passe",
+      "birthDate": "Data de nascimento",
+      "birthDateHint": "Só tu a vês. As outras pessoas veem um intervalo de idade.",
+      "country": "País",
+      "countryPlaceholder": "Escolhe o teu país",
+      "consent": "Tenho {age} anos ou mais e aceito os <terms>Termos</terms> e as <guidelines>Regras da Comunidade</guidelines>.",
+      "submit": "Criar conta",
+      "checkEmailTitle": "Confirma o teu email",
+      "checkEmailSubtitle": "Falta só um passo antes de começares.",
+      "checkEmailBody": "Enviámos um link de confirmação para <strong>{email}</strong>. Abre-o para ativares a tua conta.",
+      "checkEmailSpam": "Não chegou nada? Verifica a pasta de spam — o link expira em 24 horas.",
+      "backToSignIn": "Voltar a entrar"
+    },
+
+    "forgot": {
+      "title": "Repor a palavra-passe",
+      "subtitle": "Enviamos-te um email com um link para definires uma nova.",
+      "email": "Email",
+      "submit": "Enviar link",
+      "backToSignIn": "Voltar a entrar",
+      "sentTitle": "Confirma o teu email",
+      "sentSubtitle": "Se encontrámos uma conta, o link está a caminho.",
+      "sentBody": "Enviámos um link para <strong>{email}</strong> caso exista uma conta associada. O link expira ao fim de uma hora e só pode ser usado uma vez."
+    },
+
+    "reset": {
+      "title": "Escolhe uma nova palavra-passe",
+      "subtitle": "Escolhe algo que não uses noutro sítio.",
+      "password": "Nova palavra-passe",
+      "passwordHint": "Pelo menos {min} caracteres. Uma frase curta funciona bem.",
+      "confirmPassword": "Confirmar nova palavra-passe",
+      "submit": "Alterar palavra-passe",
+      "backToSignIn": "Voltar a entrar",
+      "noTokenTitle": "Este link está incompleto",
+      "noTokenSubtitle": "Abre o link diretamente a partir do teu email.",
+      "noTokenBody": "Falta o token ao link de reposição. Normalmente acontece por se copiar só parte do endereço.",
+      "requestNew": "Pedir um novo link",
+      "doneTitle": "Palavra-passe alterada",
+      "doneSubtitle": "A sessão foi terminada em todos os outros dispositivos.",
+      "doneBody": "Por segurança, alterar a palavra-passe termina todas as sessões existentes — incluindo as de quem tivesse acesso."
+    },
+
+    "verify": {
+      "workingTitle": "A confirmar o teu email",
+      "workingSubtitle": "Demora só um instante.",
+      "workingBody": "A verificar o teu link…",
+      "successTitle": "Email confirmado",
+      "successSubtitle": "A tua conta está pronta.",
+      "successBody": "Já podes começar a conhecer pessoas.",
+      "backToHome": "Voltar ao início",
+      "expiredTitle": "Este link expirou",
+      "expiredSubtitle": "Os links de confirmação são válidos durante 24 horas.",
+      "expiredBody": "Pede um novo email de confirmação e tenta novamente.",
+      "failedTitle": "Não conseguimos confirmar esse link",
+      "failedSubtitle": "O link pode já ter sido usado.",
+      "missingBody": "Esse link está incompleto. Abre o link diretamente a partir do teu email, em vez de copiares só parte dele.",
+      "backToSignIn": "Voltar a entrar",
+      "resendLabel": "Enviar um novo link",
+      "resendSubmit": "Reenviar email de confirmação",
+      "resendSent": "Se esse endereço ainda precisar de confirmação, um novo link está a caminho."
+    }
+  }
+}
