@@ -50,6 +50,15 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 
 RUN pnpm --filter "@trip2world/${APP}..." build
 
+# Guarantee the directory the runner stage copies exists.
+#
+# `public/` is optional in Next.js and git does not track empty directories, so an app
+# with no static assets simply has no such path in the build context — and `COPY` fails
+# with "not found", breaking the image for a directory nobody asked for. That is exactly
+# what happened when the admin app's only public file was removed: deleting one icon
+# broke the build of an unrelated stage.
+RUN mkdir -p "apps/${APP}/public"
+
 # ──────────────────────────────────────────────────────────────────────────────
 FROM base AS runner
 
