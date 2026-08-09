@@ -3,10 +3,13 @@
 import { countryName, formatDuration } from '@trip2world/shared';
 import { type ConnectionQuality, REPORT_CATEGORIES, SessionState } from '@trip2world/types';
 import {
+  Ban,
   Camera,
   CameraOff,
+  Coins,
   Flag,
   Gift,
+  Settings,
   Loader2,
   LogOut,
   Mic,
@@ -53,6 +56,7 @@ export default function DiscoverPage() {
   /** Same remote stream, rendered blurred behind the letterboxed video. */
   const backdropVideoRef = useRef<HTMLVideoElement>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
   const [tipOpen, setTipOpen] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
 
@@ -122,6 +126,32 @@ export default function DiscoverPage() {
 
   return (
     <main className="relative flex min-h-dvh flex-col bg-black">
+      {/*
+        Top bar. Previously there was no route out of this page at all — Settings, the
+        blocked list and the token balance were all unreachable once you were here.
+        Kept minimal so it does not compete with the video.
+      */}
+      <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+        <Link
+          href="/settings/tokens"
+          className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 px-3 py-1.5 text-xs backdrop-blur transition-colors hover:bg-white/10"
+        >
+          <Coins className="h-3.5 w-3.5 text-brand" aria-hidden />
+          <span className="tabular-nums">
+            {conversation.tokenBalance === null ? '—' : conversation.tokenBalance.toLocaleString()}
+          </span>
+          <span className="sr-only">tokens — open token settings</span>
+        </Link>
+
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/50 backdrop-blur transition-colors hover:bg-white/10"
+        >
+          <Settings className="h-4 w-4" aria-hidden />
+        </Link>
+      </div>
+
       {/* ── Remote video / stage ─────────────────────────────────────── */}
       <div className="relative flex-1 overflow-hidden">
         {inCall && (
@@ -361,7 +391,9 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 sm:gap-3">
+        {/* Wraps rather than overflowing: eight controls do not fit one row on a narrow
+            phone, and a horizontally-scrolling control bar hides the button you need. */}
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 sm:gap-3">
           <ControlButton
             label={microphoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
             active={microphoneEnabled}
@@ -413,6 +445,15 @@ export default function DiscoverPage() {
           </ControlButton>
 
           <ControlButton
+            label="Block this person"
+            tone="danger"
+            onClick={() => setBlockOpen(true)}
+            disabled={!inCall || !partner}
+          >
+            <Ban className="h-5 w-5" />
+          </ControlButton>
+
+          <ControlButton
             label="Report this person"
             tone="danger"
             onClick={() => setReportOpen(true)}
@@ -431,6 +472,24 @@ export default function DiscoverPage() {
           </ControlButton>
         </div>
       </div>
+
+      {/*
+        Block is permanent and mutual, so it gets a confirmation. Report does not — a
+        report is reviewable and reversible by a moderator, and putting friction in front
+        of reporting someone frightening is the wrong trade.
+      */}
+      {blockOpen && partner && (
+        <ConfirmDialog
+          title={`Block ${partner.displayName ?? partner.username}?`}
+          body="You will never be matched with them again, and this cannot be undone from inside a call. The conversation ends now."
+          confirmLabel="Block"
+          onCancel={() => setBlockOpen(false)}
+          onConfirm={() => {
+            conversation.blockPartner();
+            setBlockOpen(false);
+          }}
+        />
+      )}
 
       {tipOpen && partner && (
         <TipDialog
@@ -475,6 +534,53 @@ function StageMessage({
       </h1>
       <p className="max-w-md text-sm leading-relaxed text-muted">{body}</p>
       {children}
+    </div>
+  );
+}
+
+/** Confirmation for an action that cannot be undone from here. */
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirm-title"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+    >
+      <div className="glass w-full max-w-sm rounded-lg p-6">
+        <h2 id="confirm-title" className="text-lg font-semibold">
+          {title}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
+        <div className="mt-6 flex gap-3">
+          <Button variant="secondary" fullWidth onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button variant="danger" fullWidth onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

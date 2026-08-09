@@ -20,7 +20,7 @@ import {
 } from '@trip2world/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import { ensureAccessToken } from '@/lib/api';
+import { api, ensureAccessToken } from '@/lib/api';
 import {
   applyZoom,
   getOppositeCameraTrack,
@@ -745,6 +745,22 @@ export function useConversation() {
       socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* --- Initial token balance ------------------------------------------ */
+
+  /**
+   * Fetch the balance once on mount.
+   *
+   * The socket only pushes `tokens:balance` when it changes, so without this the header
+   * reads "—" until the user's first tip — which looks like the feature is broken rather
+   * than like they have tokens.
+   */
+  useEffect(() => {
+    void api
+      .get<{ balance: number }>('/v1/tokens/balance')
+      .then((data) => setTokenBalance(data.balance))
+      .catch(() => undefined);
   }, []);
 
   /* --- Presence heartbeat -------------------------------------------- */
