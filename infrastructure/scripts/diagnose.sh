@@ -122,6 +122,26 @@ if [[ -n "$APP_URL" ]]; then
     warn "service target and that WebSockets are not disabled for the hostname."
   fi
 
+  # The same handshake, but as a BROWSER makes it.
+  #
+  # Every check above omits the one header that distinguishes a browser from curl: an
+  # `Origin`. Socket.IO enforces CORS in engine.io, *before* the namespace middleware
+  # runs — so a rejected origin never reaches the authentication code and never logs a
+  # thing. The result is a realtime service that answers every curl perfectly, refuses
+  # every browser, and reports nothing at all. That combination has been on screen for
+  # several rounds.
+  origin_probe="$(curl -sS -i --max-time 10 -H "Origin: ${APP_URL}" \
+    "${APP_URL}${HANDSHAKE}" 2>/dev/null)"
+
+  if grep -qi '^access-control-allow-origin' <<<"$origin_probe"; then
+    ok "internet → handshake with Origin: ${APP_URL} accepted"
+  else
+    bad "internet → handshake with Origin: ${APP_URL} has no CORS header"
+    warn "curl without an Origin succeeds and every browser fails. Check that APP_URL and"
+    warn "CORS_ALLOWED_ORIGINS in .env exactly match the address in the browser's URL bar,"
+    warn "including https:// and any www."
+  fi
+
   # The polling handshake above and the WebSocket upgrade are two different things, and
   # a tunnel can carry one and not the other. Testing only polling is how a browser-only
   # failure hid behind three green checks: every curl passed, every user saw "Cannot
