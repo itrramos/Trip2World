@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   ConnectionStats,
+  ISODateString,
   MatchFoundPayload,
   MatchPreferences,
   PublicProfile,
@@ -118,6 +119,45 @@ export interface ConnectionStatsPayload {
   stats: ConnectionStats;
 }
 
+/* --- Tipping --------------------------------------------------------------- */
+
+export interface TipSendPayload {
+  matchId: UUID;
+  tokens: number;
+  message?: string;
+  /**
+   * Extra call time being offered. The recipient may accept or decline; the tokens
+   * transfer either way. Omit for a plain tip.
+   */
+  offeredSeconds?: number;
+}
+
+export interface TipReceivedPayload {
+  tipId: UUID;
+  matchId: UUID;
+  fromUserId: UUID;
+  /** Display name of the sender, already privacy-filtered. */
+  fromName: string;
+  tokens: number;
+  message: string | null;
+  offeredSeconds: number | null;
+  /** True on the sender's own copy, so one event can drive both sides of the UI. */
+  isOwn: boolean;
+  sentAt: ISODateString;
+}
+
+export interface TipOfferResponsePayload {
+  tipId: UUID;
+  accepted: boolean;
+}
+
+export interface TipOfferResolvedPayload {
+  tipId: UUID;
+  accepted: boolean;
+  /** Seconds added to the call when accepted. */
+  extendedBySeconds: number | null;
+}
+
 /** Acknowledgement callback shape used by request/response style events. */
 export type Ack<T> = (result: { ok: true; data: T } | { ok: false; error: RealtimeError }) => void;
 
@@ -143,6 +183,10 @@ export interface ClientToServerEvents {
 
   'user:report': (payload: ReportPayload, ack?: Ack<{ reportId: UUID }>) => void;
   'user:block': (payload: BlockPayload, ack?: Ack<{ blocked: true }>) => void;
+
+  'tip:send': (payload: TipSendPayload, ack?: Ack<{ tipId: UUID; balance: number }>) => void;
+  /** Recipient's answer to a time offer. Only the recipient may send this. */
+  'tip:respond': (payload: TipOfferResponsePayload, ack?: Ack<{ ok: true }>) => void;
 
   'stats:report': (payload: ConnectionStatsPayload) => void;
 }
@@ -185,6 +229,11 @@ export interface ServerToClientEvents {
   'webrtc:ice': (payload: WebRtcIcePayload) => void;
 
   'chat:message': (payload: ChatMessage & { clientId?: string }) => void;
+
+  'tip:received': (payload: TipReceivedPayload) => void;
+  'tip:offer-resolved': (payload: TipOfferResolvedPayload) => void;
+  /** Pushed to a user whenever their balance changes, so the header stays accurate. */
+  'tokens:balance': (payload: { balance: number }) => void;
 
   'presence:update': (payload: { userId: UUID; state: PresenceState }) => void;
 

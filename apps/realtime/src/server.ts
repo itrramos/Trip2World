@@ -6,6 +6,7 @@ import {
   getBlockedUserIds,
   loadMatchCandidate,
   toPublicProfileFromRow,
+  TokensService,
 } from '@trip2world/database';
 import {
   createRedisKeys,
@@ -35,7 +36,9 @@ import {
   matchSkipSchema,
   queueJoinSchema,
   socketBlockSchema,
+  sendTipSocketSchema,
   socketReportSchema,
+  tipRespondSocketSchema,
   webrtcAnswerSchema,
   webrtcIceSchema,
   webrtcOfferSchema,
@@ -84,6 +87,10 @@ export function buildRealtimeServer(deps: RealtimeServerDeps): RealtimeServer {
     logger,
     nodeId: config.REALTIME_NODE_ID,
   });
+
+  // Tipping happens during a call, so the ledger is needed here as well as in the API.
+  // Shared implementation, so there is one place money can go wrong.
+  const tokens = new TokensService(prisma, logger);
 
   /* ---------------------------------------------------------------- */
   /* HTTP surface (health only)                                        */
@@ -714,6 +721,107 @@ export function buildRealtimeServer(deps: RealtimeServerDeps): RealtimeServer {
         logger.error({ err: error, userId }, 'user:report failed');
         fail(socket, RealtimeErrorCode.INTERNAL, 'Could not file that report.');
       });
+    });
+
+    /* --- Tipping -------------------------------------------------- */
+
+    /**
+     * Send a tip to the person you are talking to.
+     *
+     * The token transfer is atomic and happens before anything is announced, so a failed
+     * debit never produces a visible tip. A tip may carry an offer of extra call time —
+     * but that is an OFFER: the recipient accepts or declines, the tokens move either
+     * way, and Next / report / block are never affected by any of this. A paid way to
+     * hold someone in a call would be a harassment tool, so it does not exist.
+     */
+    socket.on('tip:send', (payload, ack) => {
+      void (async () => {
+        if (!allow(socket, 'tip:send', 30, 60_000)) {
+          return fail(socket, RealtimeErrorCode.RATE_LIMITED, 'Slow down a moment.');
+        }
+
+        const data = parse(socket, 'tip:send', sendTipSocketSchema, payload);
+        if (!data) return;
+
+        const peerId = await queue.resolvePeer(data.matchId, userId);
+        if (peerId === null) {
+          return fail(socket, RealtimeErrorCode.NOT_IN_MATCH, 'That conversation has ended.');
+        }
+
+        try {
+          const result = await tokens.sendTip({
+            fromUserId: userId,
+            toUserId: peerId,
+            tokens: data.tokens,
+            matchId: data.matchId,
+            message: data.message,
+            offeredSeconds: data.offeredSeconds,
+          });
+
+          const sentAt = new Date().toISOString();
+          const base = {
+            tipId: result.tipId,
+            matchId: data.matchId,
+            fromUserId: userId,
+            fromName: socket.data.username,
+            tokens: data.tokens,
+            message: data.message ?? null,
+            offeredSeconds: data.offeredSeconds ?? null,
+            sentAt,
+          };
+
+          nsp.to(userRoom(peerId)).emit('tip:received', { ...base, isOwn: false });
+          socket.emit('tip:received', { ...base, isOwn: true });
+
+          // Both balances changed; push each so neither header goes stale.
+          socket.emit('tokens:balance', { balance: result.senderBalance });
+          const recipientBalance = await tokens.getBalance(peerId);
+          nsp.to(userRoom(peerId)).emit('tokens:balance', { balance: recipientBalance.balance });
+
+          ack?.({ ok: true, data: { tipId: result.tipId, balance: result.senderBalance } });
+        } catch (error) {
+          const message =
+            error instanceof Error && /enough tokens/i.test(error.message)
+              ? 'You do not have enough tokens.'
+              : 'Could not send that tip.';
+          fail(socket, RealtimeErrorCode.INVALID_PAYLOAD, message);
+        }
+      })().catch((error: unknown) => {
+        logger.error({ err: error, userId }, 'tip:send failed');
+        fail(socket, RealtimeErrorCode.INTERNAL, 'Could not send that tip.');
+      });
+    });
+
+    /**
+     * Answer a time offer.
+     *
+     * Only the recipient may answer, enforced in the service. Declining costs nothing —
+     * the tokens have already landed — so the choice is genuinely free.
+     */
+    socket.on('tip:respond', (payload, ack) => {
+      void (async () => {
+        const data = parse(socket, 'tip:respond', tipRespondSocketSchema, payload);
+        if (!data) return;
+
+        try {
+          const tip = await tokens.respondToOffer(data.tipId, userId, data.accepted);
+
+          const resolved = {
+            tipId: data.tipId,
+            accepted: data.accepted,
+            extendedBySeconds: data.accepted ? tip.offeredSeconds : null,
+          };
+
+          socket.emit('tip:offer-resolved', resolved);
+          if (tip.fromUserId) {
+            nsp.to(userRoom(tip.fromUserId)).emit('tip:offer-resolved', resolved);
+          }
+
+          ack?.({ ok: true, data: { ok: true } });
+        } catch {
+          fail(socket, RealtimeErrorCode.INVALID_PAYLOAD, 'Could not record that response.');
+        }
+      })().catch(() => undefined);
     });
 
     /* --- Telemetry ------------------------------------------------ */

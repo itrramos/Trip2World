@@ -92,7 +92,7 @@ function createFakePrisma(initial: Record<string, number>) {
 function service(initial: Record<string, number>) {
   const fake = createFakePrisma(initial);
   return {
-    tokens: new TokensService({ prisma: fake.client as never, logger }),
+    tokens: new TokensService(fake.client as never, logger),
     ...fake,
   };
 }

@@ -144,6 +144,31 @@ export const presenceOnlineSchema = z.object({
   state: z.enum(['ONLINE', 'MATCHING', 'CONNECTED', 'AWAY']),
 });
 
+/* --- Tipping --------------------------------------------------------------- */
+
+/**
+ * A tip sent during a call.
+ *
+ * `offeredSeconds` is an OFFER of extra time, not a purchase of it. The recipient
+ * accepts or declines and the tokens transfer regardless; Next, report and block are
+ * never affected. See the note on `respondToOffer` in the tokens service.
+ */
+export const sendTipSocketSchema = z.object({
+  matchId: uuidSchema,
+  tokens: z
+    .number()
+    .int('Tips must be a whole number of tokens')
+    .positive()
+    .max(10_000, 'A single tip cannot exceed 10,000 tokens'),
+  message: displayTextSchema(200).optional(),
+  offeredSeconds: z.number().int().min(30).max(3600).optional(),
+});
+
+export const tipRespondSocketSchema = z.object({
+  tipId: uuidSchema,
+  accepted: z.boolean(),
+});
+
 /**
  * Lookup table used by the realtime server's generic event guard, so adding an event
  * without a schema is a compile error rather than an unvalidated hole.
@@ -162,6 +187,8 @@ export const REALTIME_EVENT_SCHEMAS = {
   'user:report': socketReportSchema,
   'user:block': socketBlockSchema,
   'stats:report': connectionStatsSchema,
+  'tip:send': sendTipSocketSchema,
+  'tip:respond': tipRespondSocketSchema,
 } as const;
 
 export type RealtimeEventName = keyof typeof REALTIME_EVENT_SCHEMAS;

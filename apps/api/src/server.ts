@@ -17,9 +17,11 @@ import { adminRoutes } from './routes/admin.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { iceRoutes } from './routes/ice.routes.js';
+import { tokenRoutes } from './routes/tokens.routes.js';
 import { AuthService } from './services/auth.service.js';
 import { createMailService, type MailService } from './services/mail.service.js';
 import { SettingsService } from './services/settings.service.js';
+import { TokenError, toApiError } from './services/tokens.service.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -140,6 +142,43 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await app.register(rateLimitPlugin);
   await app.register(authPlugin);
 
+  /**
+   * Keep the raw body for the Stripe webhook.
+   *
+   * Stripe signs the exact bytes it sent. Fastify's default JSON parser produces an
+   * object, and re-serialising it yields different bytes — key order, whitespace,
+   * number formatting — so the signature never verifies and every legitimate event is
+   * rejected. This parser hands the webhook route its buffer and behaves normally for
+   * everything else.
+   *
+   * Matched on the URL rather than the route object because content-type parsing runs
+   * before routing has resolved.
+   */
+  app.addContentTypeParser(
+    'application/json',
+    { parseAs: 'buffer' },
+    (request, body: Buffer, done) => {
+      if (request.url.split('?')[0]?.endsWith('/tokens/webhook')) {
+        (request as unknown as { rawBody: Buffer }).rawBody = body;
+        done(null, undefined);
+        return;
+      }
+
+      // An empty body is valid for POSTs that take no payload.
+      if (body.length === 0) {
+        done(null, undefined);
+        return;
+      }
+
+      try {
+        done(null, JSON.parse(body.toString('utf8')));
+      } catch {
+        // Surfaced as a 400 by the error handler, not a 500.
+        done(new AppError(ApiErrorCode.VALIDATION_ERROR, 'Body is not valid JSON.'), undefined);
+      }
+    },
+  );
+
   /* ---------------------------------------------------------------- */
   /* Cross-cutting hooks                                               */
   /* ---------------------------------------------------------------- */
@@ -176,6 +215,14 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
         request.log.info({ code: error.code, requestId }, error.message);
       }
       return reply.status(error.statusCode).send(error.toResponse(requestId));
+    }
+
+    // Ledger errors are transport-agnostic by design (the realtime server raises the
+    // same ones), so they are translated to HTTP here rather than at each call site.
+    if (error instanceof TokenError) {
+      const appError = toApiError(error);
+      request.log.info({ code: error.code, requestId }, error.message);
+      return reply.status(appError.statusCode).send(appError.toResponse(requestId));
     }
 
     if (error instanceof ZodError) {
@@ -228,6 +275,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(iceRoutes, { prefix: '/api/v1/ice' });
+  await app.register(tokenRoutes, { prefix: '/api/v1/tokens' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
 
   return app;
