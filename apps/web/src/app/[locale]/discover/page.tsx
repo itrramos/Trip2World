@@ -204,12 +204,26 @@ export default function DiscoverPage() {
         top of each other. A single flex row with `justify-between` cannot do that, and
         the left side shrinks because it is allowed to.
       */}
-      <div className="absolute inset-x-4 top-4 z-30 flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          {inCall && partner && <PartnerBadge partner={partner} quality={quality} seconds={state === SessionState.CONNECTED ? callSeconds : null} />}
+      <div className="absolute inset-x-4 top-4 z-30 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        {/*
+          On a phone these stack: the four buttons need roughly 200px of a 360px screen,
+          which leaves the partner badge about 120px — not enough for a name, and no
+          amount of shrink ordering changes that. Squeezed onto one row the name
+          collapsed to nothing and the badge read "Excellent 0:06" with no idea who that
+          was. Given its own row it has the full width. Side by side from `sm` up, where
+          there is genuinely room.
+        */}
+        <div className="min-w-0 sm:flex-1">
+          {inCall && partner && (
+            <PartnerBadge
+              partner={partner}
+              quality={quality}
+              seconds={state === SessionState.CONNECTED ? callSeconds : null}
+            />
+          )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
           <TopBarLink href="/" label={t('home')} inCall={inCall} blockedLabel={t('leaveBlocked')}>
             <Home className="h-4 w-4" aria-hidden />
           </TopBarLink>
@@ -678,20 +692,22 @@ function PartnerBadge({
   return (
     <div className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 backdrop-blur sm:gap-3 sm:px-4">
       {/*
-        `min-w-0` is what actually lets this shrink. A flex child defaults to
-        `min-width: auto` and refuses to go narrower than its content, which is the usual
-        reason a row that looks responsive still overflows on a phone.
+        The name truncates but never vanishes. Everything beside it is `shrink-0`, so a
+        long name gives up characters rather than pushing the timer off the end — and a
+        badge that shows a connection quality without saying whose is useless.
       */}
-      <span className="min-w-0 truncate text-sm font-medium">
+      <span className="min-w-[4rem] flex-1 truncate text-sm font-medium">
         {partner.displayName ?? partner.username}
       </span>
-      {/* Country goes first on a narrow screen: longest of the four, least useful. */}
+
       {partner.country && (
-        <span className="hidden truncate text-sm text-muted sm:inline">
+        <span className="hidden shrink-0 text-sm text-muted sm:inline">
           {countryName(partner.country)}
         </span>
       )}
+
       <QualityBadge quality={quality} />
+
       {seconds !== null && (
         <span className="shrink-0 tabular-nums text-xs text-muted">
           {formatDuration(seconds)}
@@ -837,7 +853,7 @@ function QualityBadge({ quality }: { quality: ConnectionQuality }) {
 
   return (
     <span
-      className={cn('flex items-center gap-1 text-xs', QUALITY_CLASS[quality])}
+      className={cn('flex shrink-0 items-center gap-1 text-xs', QUALITY_CLASS[quality])}
       title={t('label', { quality: label })}
     >
       <Signal className="h-3.5 w-3.5" aria-hidden />
