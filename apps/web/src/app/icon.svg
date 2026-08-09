@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Trip2World">
+  <!--
+    Favicon, not a shrunken logo.
+
+    The full mark in public/icon.svg has five interior lines at stroke-width 18. At a
+    16px tab icon that is 0.56 device pixels per stroke: the globe collapses into a grey
+    smudge. This variant is drawn for that size specifically — three lines instead of
+    five, strokes at 34, and a larger globe relative to the plate.
+
+    The plate stays. A transparent line-art icon disappears against a dark tab strip in
+    one theme and a light one in the other; a filled rounded square reads in both.
+  -->
+  <defs>
+    <linearGradient id="t2w-favicon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="55%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#0a0f1c"/>
+
+  <g fill="none" stroke="url(#t2w-favicon)" stroke-width="34" stroke-linecap="round">
+    <circle cx="256" cy="256" r="152"/>
+    <!-- One meridian and one parallel. Any more and they merge at small sizes. -->
+    <ellipse cx="256" cy="256" rx="66" ry="152"/>
+    <path d="M104 256h304"/>
+  </g>
+</svg>

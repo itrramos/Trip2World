@@ -3,8 +3,8 @@
 # Ingress model: an EXTERNAL Cloudflare Tunnel (managed outside this stack) maps two host
 # ports to two public hostnames:
 #
-#   http://<host>:8181  ->  https://call.trip2fun.com     public app
-#   http://<host>:8182  ->  https://admin.trip2fun.com    admin panel
+#   http://<host>:8181  ->  https://trip2world.net        public app (and www, redirected)
+#   http://<host>:8182  ->  https://admin.trip2world.net  admin panel
 #
 # Routing is therefore by PORT, not by Host header. That is deliberate: whatever Host the
 # tunnel forwards, the port it connected to is unambiguous, so the admin panel can never
@@ -22,7 +22,7 @@
 # Why /api is served on BOTH ports: putting the admin panel on its own origin only
 # isolates its session if the admin UI can authenticate WITHOUT a cross-origin request.
 # Serving the API on each port lets both panels call /api same-origin, so each cookie is
-# host-scoped (no Domain=.trip2fun.com) and an XSS in the public web bundle cannot attach
+# host-scoped (no Domain=.trip2world.net) and an XSS in the public web bundle cannot attach
 # a moderator's cookie to a request.
 #
 # TLS is terminated by Cloudflare. Caddy speaks plain HTTP and must never be exposed
@@ -81,7 +81,26 @@
 	import app_log
 	import security_headers
 
-	# Liveness for the container healthcheck and for uptime monitoring.
+	# Canonical hostname.
+	#
+	# The tunnel routes BOTH the apex and www to this port, and that is a problem the
+	# moment anyone signs in: session cookies are host-scoped on purpose — no
+	# `Domain=.trip2world.net`, because that would share them with the admin origin and
+	# dissolve the boundary the separate port exists to create. Host-scoped means a
+	# cookie set on `trip2world.net` is simply not sent to `www.trip2world.net`.
+	#
+	# Serving both would therefore look like this: sign in on www, click a link that
+	# resolves to the apex, and you are signed out. No error, no clue why.
+	#
+	# One hostname serves; the other redirects. 301 so browsers and Cloudflare cache it.
+	# Doing it here rather than in a Cloudflare Redirect Rule keeps it in the repo, where
+	# it survives a dashboard change nobody remembers making.
+	@www host www.{$APP_DOMAIN}
+	redir @www https://{$APP_DOMAIN}{uri} permanent
+
+	# Liveness for the container healthcheck and for uptime monitoring. Matched after the
+	# redirect but never affected by it — the healthcheck connects to 127.0.0.1, so its
+	# Host header is never the www hostname.
 	handle /healthz {
 		respond "ok" 200
 	}

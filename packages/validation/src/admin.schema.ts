@@ -22,6 +22,59 @@ export const adminUserQuerySchema = paginationSchema.extend({
   direction: z.enum(['asc', 'desc']).default('desc'),
 });
 
+/* --- Token campaigns ------------------------------------------------------ */
+
+export const campaignAudienceSchema = z.enum(['NEW_USERS', 'ALL_USERS']);
+export const campaignStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'PAUSED', 'ENDED']);
+
+/**
+ * Upper bound on a single grant.
+ *
+ * Not arbitrary caution: this number is typed into a form by a tired operator, and a
+ * stray zero on a launch promotion is a budget mistake that cannot be taken back once
+ * the tokens are in people's accounts. 100 000 is far beyond any sensible promotion and
+ * still catches the extra digit.
+ */
+const MAX_CAMPAIGN_TOKENS = 100_000;
+
+export const createCampaignSchema = z
+  .object({
+    name: displayTextSchema(80),
+    description: displayTextSchema(300).optional(),
+    tokens: z.number().int().positive().max(MAX_CAMPAIGN_TOKENS),
+    audience: campaignAudienceSchema.default('NEW_USERS'),
+    startsAt: z.coerce.date().nullable().optional(),
+    endsAt: z.coerce.date().nullable().optional(),
+    maxGrants: z.number().int().positive().max(10_000_000).nullable().optional(),
+    requiresVerifiedEmail: z.boolean().default(true),
+  })
+  .strict()
+  .refine((value) => !value.startsAt || !value.endsAt || value.endsAt > value.startsAt, {
+    message: 'The end date must be after the start date.',
+    path: ['endsAt'],
+  });
+
+export const updateCampaignSchema = z
+  .object({
+    name: displayTextSchema(80).optional(),
+    description: displayTextSchema(300).nullable().optional(),
+    tokens: z.number().int().positive().max(MAX_CAMPAIGN_TOKENS).optional(),
+    audience: campaignAudienceSchema.optional(),
+    startsAt: z.coerce.date().nullable().optional(),
+    endsAt: z.coerce.date().nullable().optional(),
+    maxGrants: z.number().int().positive().max(10_000_000).nullable().optional(),
+    requiresVerifiedEmail: z.boolean().optional(),
+  })
+  .strict()
+  .refine((value) => !value.startsAt || !value.endsAt || value.endsAt > value.startsAt, {
+    message: 'The end date must be after the start date.',
+    path: ['endsAt'],
+  });
+
+export const setCampaignStatusSchema = z
+  .object({ status: campaignStatusSchema })
+  .strict();
+
 export const adminWarnUserSchema = z.object({
   userId: uuidSchema,
   reason: displayTextSchema(500),

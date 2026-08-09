@@ -26,7 +26,7 @@ import type { IceServerConfig } from '@trip2world/types';
 export interface TurnConfig {
   /** Shared secret, identical to coturn's `static-auth-secret`. */
   secret: string;
-  /** Public hostname clients dial, e.g. `turn.trip2fun.com`. */
+  /** Public hostname clients dial, e.g. `turn.trip2world.net`. */
   host: string;
   port?: number;
   tlsPort?: number;

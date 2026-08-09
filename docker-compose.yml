@@ -3,8 +3,8 @@
 #   docker compose up -d
 #
 # Ingress is an EXTERNAL Cloudflare Tunnel, managed outside this stack, mapping:
-#   http://<host>:8181  ->  https://call.trip2fun.com
-#   http://<host>:8182  ->  https://admin.trip2fun.com
+#   http://<host>:8181  ->  https://trip2world.net
+#   http://<host>:8182  ->  https://admin.trip2world.net
 #
 # Portainer: Stacks -> Add stack -> Repository, then paste .env into the stack's
 # environment variables. See docs/DEPLOYMENT.md.
@@ -60,8 +60,8 @@ services:
     image: caddy:2.8-alpine
     <<: [*restart, *logging]
     # The only published HTTP ports. Your external Cloudflare Tunnel maps:
-    #   <host>:8181 -> https://call.trip2fun.com
-    #   <host>:8182 -> https://admin.trip2fun.com
+    #   <host>:8181 -> https://trip2world.net
+    #   <host>:8182 -> https://admin.trip2world.net
     #
     # BIND_ADDRESS controls who can reach these. 127.0.0.1 is strongly preferred: it
     # makes the tunnel the ONLY way in, so nobody can bypass Cloudflare (and any Access

@@ -9,16 +9,16 @@ import { loadConfig } from './config.js';
 
 const VALID = {
   NODE_ENV: 'production',
-  APP_URL: 'https://call.trip2fun.com',
-  APP_DOMAIN: 'call.trip2fun.com',
-  ADMIN_URL: 'https://admin.trip2fun.com',
+  APP_URL: 'https://trip2world.net',
+  APP_DOMAIN: 'trip2world.net',
+  ADMIN_URL: 'https://admin.trip2world.net',
   DATABASE_URL: 'postgresql://u:p@postgres:5432/db',
   REDIS_URL: 'redis://:p@redis:6379',
   JWT_SECRET: 'a'.repeat(48),
   SESSION_SECRET: 'b'.repeat(48),
   IP_HASH_SALT: 'c'.repeat(48),
   TURN_SECRET: 'd'.repeat(48),
-  TURN_DOMAIN: 'turn.trip2fun.com',
+  TURN_DOMAIN: 'turn.trip2world.net',
   SMTP_HOST: 'smtp.gmail.com',
   MAIL_TRANSPORT: 'smtp',
 } satisfies NodeJS.ProcessEnv;
@@ -69,11 +69,11 @@ describe('valid configuration', () => {
   it('always trusts its own origins for CORS, plus anything explicitly listed', () => {
     const config = loadConfig({
       ...VALID,
-      CORS_ALLOWED_ORIGINS: 'https://call.trip2fun.com,https://extra.example',
+      CORS_ALLOWED_ORIGINS: 'https://trip2world.net,https://extra.example',
     });
 
-    expect(config.corsOrigins).toContain('https://call.trip2fun.com');
-    expect(config.corsOrigins).toContain('https://admin.trip2fun.com');
+    expect(config.corsOrigins).toContain('https://trip2world.net');
+    expect(config.corsOrigins).toContain('https://admin.trip2world.net');
     expect(config.corsOrigins).toContain('https://extra.example');
     // Deduplicated despite the overlap with APP_URL.
     expect(new Set(config.corsOrigins).size).toBe(config.corsOrigins.length);
@@ -144,7 +144,7 @@ describe('secret validation', () => {
 
 describe('production guards', () => {
   it('refuses plain HTTP, because secure cookies would silently be dropped', () => {
-    expect(expectRejection({ ...VALID, APP_URL: 'http://call.trip2fun.com' })).toMatch(
+    expect(expectRejection({ ...VALID, APP_URL: 'http://trip2world.net' })).toMatch(
       /must be https/,
     );
   });

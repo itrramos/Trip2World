@@ -355,6 +355,12 @@
     }
   },
 
+  "grants": {
+    "title": "You received {count, plural, one {# free token} other {# free tokens}}",
+    "viewBalance": "View your balance",
+    "dismiss": "Dismiss"
+  },
+
   "tips": {
     "dialogTitle": "Send {name} a tip",
     "balanceLoading": "Loading balance…",

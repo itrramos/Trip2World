@@ -244,6 +244,8 @@ model User {
   tokenPurchases TokenPurchase[]
   tipsSent       Tip[]           @relation("TipSender")
   tipsReceived   Tip[]           @relation("TipRecipient")
+  tokenGrants    TokenGrant[]
+  campaignsCreated TokenCampaign[] @relation("CampaignAuthor")
 
   @@index([status])
   @@index([createdAt])
@@ -770,6 +772,8 @@ model TokenLedger {
   matchId        String? @db.Uuid
   purchaseId     String? @db.Uuid
   tipId          String? @db.Uuid
+  /// Set on PROMO rows, so a support query can answer "which campaign gave me these?"
+  campaignId     String? @db.Uuid
 
   note String? @db.VarChar(200)
 
@@ -857,6 +861,101 @@ model Tip {
   @@index([fromUserId, createdAt])
   @@index([matchId])
   @@map("tips")
+}
+
+/// A promotional token grant an operator can schedule and switch on and off.
+///
+/// Launch bonuses, a special day, "the first 500 accounts". One model covers all of
+/// them, because they only differ in three fields: who qualifies, when, and how many.
+///
+/// The counter and the cap live on the row rather than being derived from `grants`
+/// because they are checked on a hot path — every registration — and because the cap has
+/// to be enforced atomically. `COUNT(*)` then compare is a lost-update bug: fifty
+/// simultaneous signups all read 499 and all pass a limit of 500. See
+/// `CampaignsService.claim`.
+model TokenCampaign {
+  id          String  @id @default(uuid()) @db.Uuid
+  /// Shown to the user when the tokens land, so it has to read like a sentence.
+  name        String  @db.VarChar(80)
+  /// Internal note for the operator. Never sent to a browser.
+  description String? @db.VarChar(300)
+
+  /// Tokens granted per user. Fixed — a campaign that granted a varying amount would be
+  /// impossible to explain to a user asking why they got less than someone else.
+  tokens Int
+
+  audience CampaignAudience @default(NEW_USERS)
+  status   CampaignStatus   @default(DRAFT)
+
+  /// Null start means "as soon as it is ACTIVE"; null end means "until switched off".
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  /// "First N accounts". Null is unlimited.
+  maxGrants    Int?
+  grantsIssued Int  @default(0)
+
+  /// Require a confirmed email address before granting.
+  ///
+  /// Defaults to true and should stay true. Free tokens on signup are an incentive to
+  /// create accounts in bulk; requiring verification makes each one cost a working
+  /// mailbox, which is the cheapest meaningful brake available without collecting more
+  /// personal data than this product is willing to hold.
+  requiresVerifiedEmail Boolean @default(true)
+
+  createdById String? @db.Uuid
+  createdBy   User?   @relation("CampaignAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  grants TokenGrant[]
+
+  @@index([status])
+  @@map("token_campaigns")
+}
+
+/// Proof that a specific user received a specific campaign, exactly once.
+///
+/// The unique constraint is the whole point: it is the database, not application logic,
+/// that guarantees nobody collects the same promotion twice. Application checks race;
+/// a unique index does not.
+model TokenGrant {
+  id String @id @default(uuid()) @db.Uuid
+
+  campaignId String        @db.Uuid
+  campaign   TokenCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Copied from the campaign at grant time. The campaign's amount can be edited later;
+  /// what this user actually received must not change retroactively.
+  tokens Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, userId])
+  @@index([userId, createdAt])
+  @@map("token_grants")
+}
+
+enum CampaignAudience {
+  /// Accounts created while the campaign is live.
+  NEW_USERS
+  /// Everyone, granted the next time they sign in.
+  ALL_USERS
+}
+
+enum CampaignStatus {
+  /// Being written. Never grants.
+  DRAFT
+  /// Live, subject to its window and cap.
+  ACTIVE
+  /// Temporarily off. Keeps its counter, can be resumed.
+  PAUSED
+  /// Finished. Never grants again, kept for the record.
+  ENDED
 }
 
 /// Operator-tunable runtime configuration, edited from the admin panel.

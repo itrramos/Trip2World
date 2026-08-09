@@ -79,6 +79,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         void services.mail.sendVerificationEmail(parsed.data.email, result.verificationToken);
       }
 
+      /**
+       * Promotional grants, when there is nothing left to wait for.
+       *
+       * On a deployment with verification enabled this does nothing — every campaign
+       * defaults to `requiresVerifiedEmail`, so the grant happens at /verify-email
+       * instead. With verification disabled the account is usable immediately and this
+       * is the only moment it becomes eligible.
+       *
+       * `applyEligible` never throws. A promotion must not be able to fail a signup.
+       */
+      const granted = await services.campaigns.applyEligible(result.userId);
+
       return reply.status(201).send({
         ok: true,
         data: {
@@ -87,6 +99,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
           message: result.requiresVerification
             ? 'Account created. Check your email to confirm your address.'
             : 'Account created.',
+          grants: granted,
         },
       });
     },
@@ -109,17 +122,31 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         sessionContext(request),
       );
 
+      /**
+       * Sign-in is where an ALL_USERS campaign reaches an existing account.
+       *
+       * The alternative — a worker that backfills every user the moment a campaign goes
+       * live — would write to hundreds of thousands of rows for people who may never
+       * come back. Granting lazily costs one indexed lookup per login and only pays out
+       * to accounts that actually return, which is also the behaviour an operator
+       * running a "come back" promotion actually wants.
+       */
+      const granted = await services.campaigns.applyEligible(result.userId);
       const user = await loadSelf(app, result.userId);
 
       if (isNativeClient(request)) {
         return reply.send({
           ok: true,
-          data: { user, tokens: { ...result.tokens, refreshToken: result.refreshToken } },
+          data: {
+            user,
+            tokens: { ...result.tokens, refreshToken: result.refreshToken },
+            grants: granted,
+          },
         });
       }
 
       setRefreshCookie(reply, result.refreshToken, config.isProduction);
-      return reply.send({ ok: true, data: { user, tokens: result.tokens } });
+      return reply.send({ ok: true, data: { user, tokens: result.tokens, grants: granted } });
     },
   );
 
@@ -191,8 +218,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const parsed = parseInput(verifyEmailSchema, request.body, request.id);
     if (!parsed.success) throw Errors.tokenInvalid();
 
-    await services.auth.verifyEmail(parsed.data.token);
-    return reply.send({ ok: true, data: { verified: true } });
+    const { userId } = await services.auth.verifyEmail(parsed.data.token);
+
+    /**
+     * The normal moment a signup promotion pays out.
+     *
+     * Campaigns require a confirmed address by default, so this — not registration — is
+     * where a new account becomes eligible on any deployment with verification enabled.
+     * It is also the point at which the incentive works as intended: free tokens are
+     * worth a real mailbox, which is the cheapest brake on bulk account creation that
+     * does not involve collecting more personal data.
+     */
+    const granted = await services.campaigns.applyEligible(userId);
+
+    return reply.send({ ok: true, data: { verified: true, grants: granted } });
   });
 
   app.post(

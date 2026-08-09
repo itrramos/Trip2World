@@ -2,7 +2,7 @@
 
 import { UserRole } from '@trip2world/types';
 import { cn } from '@trip2world/ui';
-import { Flag, Gauge, LogOut, ScrollText, ShieldAlert, Users } from 'lucide-react';
+import { Flag, Gauge, Gift, LogOut, ScrollText, ShieldAlert, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -12,6 +12,8 @@ const NAV = [
   { href: '/', label: 'Dashboard', icon: Gauge, role: UserRole.MODERATOR },
   { href: '/reports', label: 'Reports', icon: Flag, role: UserRole.MODERATOR },
   { href: '/users', label: 'Users', icon: Users, role: UserRole.MODERATOR },
+  // ADMIN, not MODERATOR: a campaign spends money, so it is a budget decision.
+  { href: '/campaigns', label: 'Promotions', icon: Gift, role: UserRole.ADMIN },
   { href: '/audit', label: 'Audit log', icon: ScrollText, role: UserRole.ADMIN },
 ] as const;
 

@@ -26,16 +26,16 @@ Free to use, with an optional token economy for tipping.
 ## Architecture
 
 ```
-                     ┌──────────────┐
-   call.trip2fun.com │              │ :8181 ─┬─ /        web       (Next.js)
-                     │    Caddy     │        ├─ /api/*   api       (Fastify)
-  admin.trip2fun.com │              │ :8182  └─ /rt      realtime  (Socket.IO)
-                     └──────┬───────┘        └─ /        admin     (Next.js)
-                            │
-              ┌─────────────┼─────────────┬──────────────┐
-              │             │             │              │
-          postgres        redis        worker          coturn
-         (durable)     (ephemeral)   (scheduled)    (STUN/TURN)
+                        ┌──────────────┐
+      trip2world.net    │              │ :8181 ─┬─ /        web       (Next.js)
+                        │    Caddy     │        ├─ /api/*   api       (Fastify)
+admin.trip2world.net    │              │ :8182  └─ /rt      realtime  (Socket.IO)
+                        └──────┬───────┘        └─ /        admin     (Next.js)
+                               │
+                 ┌─────────────┼─────────────┬──────────────┐
+                 │             │             │              │
+             postgres        redis        worker          coturn
+            (durable)     (ephemeral)   (scheduled)    (STUN/TURN)
 ```
 
 Nine containers. Only Caddy and coturn are reachable from outside; Postgres, Redis and
@@ -198,8 +198,13 @@ transaction. Debits are a single conditional `UPDATE … WHERE balance >= n`, so
 tips cannot overdraw. Stripe webhooks are idempotent on the event id, and nothing credits
 from the success redirect.
 
+An administrator can also schedule **promotions** — free tokens for new accounts, for a
+given day, or for the first N registrations. Grants are once per user, capped atomically,
+and require a confirmed email address by default. See [PROMOTIONS](docs/PROMOTIONS.md).
+
 Tokens have no cash value and cannot be withdrawn. Enabling real payouts would likely make
-the operator a money transmitter.
+the operator a money transmitter — and would turn every promotional token into money, which
+is why payouts and unlimited promotions cannot both exist.
 
 Works with no Stripe keys configured — the catalogue renders as unavailable.
 
@@ -215,6 +220,7 @@ Works with no Stripe keys configured — the catalogue renders as unavailable.
 | [MATCHMAKING](docs/MATCHMAKING.md) | Rules, relaxation, double-booking prevention |
 | [SECURITY](docs/SECURITY.md) | Threat model, controls, known gaps |
 | [MODERATION](docs/MODERATION.md) | Queue, outcomes, operational guidance |
+| [PROMOTIONS](docs/PROMOTIONS.md) | Scheduled free-token campaigns, and the abuse limits |
 | [I18N](docs/I18N.md) | Adding a language, translator rules, what stays English |
 | [MOBILE](docs/MOBILE.md) | PWA state, and what native would require |
 | [BACKUP_RESTORE](docs/BACKUP_RESTORE.md) | Procedures and verification |

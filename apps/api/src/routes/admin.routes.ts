@@ -1,3 +1,4 @@
+import { CampaignsService } from '@trip2world/database';
 import { UserRole } from '@trip2world/types';
 import {
   adminAuditQuerySchema,
@@ -7,9 +8,12 @@ import {
   adminUnbanUserSchema,
   adminUserQuerySchema,
   adminWarnUserSchema,
+  createCampaignSchema,
   moderationQueueQuerySchema,
   parseInput,
   resolveReportRefinedSchema,
+  setCampaignStatusSchema,
+  updateCampaignSchema,
 } from '@trip2world/validation';
 import type { FastifyInstance } from 'fastify';
 import type { z } from 'zod';
@@ -28,6 +32,7 @@ import { ModerationService } from '../services/moderation.service.js';
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   const { prisma, redis, services } = app;
   const moderation = new ModerationService({ prisma, redis, logger: app.log });
+  const campaigns = new CampaignsService(prisma, app.log);
 
   const requireModerator = app.requireRole(UserRole.MODERATOR);
   const requireAdmin = app.requireRole(UserRole.ADMIN);
@@ -266,6 +271,110 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send({ ok: true, data: { updated: true } });
   });
+
+  /* ------------------------------------------------------------------ */
+  /* Token campaigns                                                     */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Promotional grants.
+   *
+   * ADMIN, not MODERATOR. A campaign spends real money — tokens are bought with cards —
+   * so switching one on is a budget decision, not a moderation one. Every mutation is
+   * audit-logged for the same reason.
+   */
+
+  app.get('/campaigns', { onRequest: [app.authenticate, requireAdmin] }, async (_request, reply) =>
+    reply.send({ ok: true, data: await campaigns.list() }),
+  );
+
+  app.post('/campaigns', { onRequest: [app.authenticate, requireAdmin] }, async (request, reply) => {
+    const input = parse(createCampaignSchema, request.body, request.id);
+    const created = await campaigns.create(input, request.user!.id);
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: request.user!.id,
+        actorType: 'ADMIN',
+        action: 'campaign.create',
+        targetType: 'TokenCampaign',
+        targetId: created.id,
+        metadata: { name: input.name, tokens: input.tokens, audience: input.audience },
+      },
+    });
+
+    return reply.status(201).send({ ok: true, data: created });
+  });
+
+  app.patch(
+    '/campaigns/:id',
+    { onRequest: [app.authenticate, requireAdmin] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = parse(updateCampaignSchema, request.body, request.id);
+
+      let updated;
+      try {
+        updated = await campaigns.update(id, input);
+      } catch (error) {
+        // The service refuses to change the amount or audience once real users have
+        // received the campaign. That is a conflict, not a server fault.
+        throw Errors.conflict(error instanceof Error ? error.message : 'Could not update.');
+      }
+      if (!updated) throw Errors.notFound('That campaign');
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: request.user!.id,
+          actorType: 'ADMIN',
+          action: 'campaign.update',
+          targetType: 'TokenCampaign',
+          targetId: id,
+          metadata: input as never,
+        },
+      });
+
+      return reply.send({ ok: true, data: updated });
+    },
+  );
+
+  /**
+   * Switch a campaign on or off.
+   *
+   * Its own endpoint rather than a field on PATCH, because this is the action with
+   * consequences — it is the moment tokens start leaving the operator's budget — and it
+   * deserves its own audit action so "who turned this on" is one query, not a scan of
+   * every update's metadata.
+   */
+  app.post(
+    '/campaigns/:id/status',
+    { onRequest: [app.authenticate, requireAdmin] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = parse(setCampaignStatusSchema, request.body, request.id);
+
+      let updated;
+      try {
+        updated = await campaigns.setStatus(id, input.status);
+      } catch (error) {
+        throw Errors.conflict(error instanceof Error ? error.message : 'Could not update.');
+      }
+      if (!updated) throw Errors.notFound('That campaign');
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: request.user!.id,
+          actorType: 'ADMIN',
+          action: `campaign.${input.status.toLowerCase()}`,
+          targetType: 'TokenCampaign',
+          targetId: id,
+          metadata: { name: updated.name, status: input.status },
+        },
+      });
+
+      return reply.send({ ok: true, data: updated });
+    },
+  );
 
   /* ------------------------------------------------------------------ */
   /* Configuration and audit                                             */

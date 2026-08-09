@@ -9,7 +9,7 @@ import type { ApiError, ApiResponse } from '@trip2world/types';
  * session bug to hide — and two places to fix when the scheme changes.
  *
  * Each app calls `createApiClient` with its own base URL, so the admin panel talks to
- * its own origin (`admin.trip2fun.com/api`) and its cookie stays host-scoped.
+ * its own origin (`admin.trip2world.net/api`) and its cookie stays host-scoped.
  *
  * Token strategy:
  *   - ACCESS token in a closure variable. Never localStorage: anything there is readable

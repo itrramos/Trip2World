@@ -498,6 +498,13 @@ export class ModerationService {
 
     const activeMatches = await prisma.match.count({ where: { endedAt: null } });
 
+    // Promotional spend. Surfaced on the dashboard because a live campaign is the one
+    // thing on this panel that costs money while nobody is looking at it.
+    const [activeCampaigns, promoGranted] = await Promise.all([
+      prisma.tokenCampaign.count({ where: { status: 'ACTIVE' } }),
+      prisma.tokenLedger.aggregate({ where: { kind: 'PROMO' }, _sum: { delta: true } }),
+    ]);
+
     return {
       registeredUsers,
       onlineUsers,
@@ -507,6 +514,8 @@ export class ModerationService {
       reportsPending,
       bannedUsers,
       suspendedUsers,
+      activeCampaigns,
+      tokensGranted: promoGranted._sum.delta ?? 0,
     };
   }
 

@@ -183,7 +183,7 @@ describe('hashIp', () => {
 describe('TURN credentials', () => {
   const turnConfig = {
     secret: 's'.repeat(48),
-    host: 'turn.trip2fun.com',
+    host: 'turn.trip2world.net',
     port: 3478,
     tlsPort: 5349,
   };

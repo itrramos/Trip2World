@@ -6,11 +6,13 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
 import { AuthShell, Button } from '@/components/ui';
+import { GrantNotice } from '@/components/grant-notice';
+import type { TokenGrantNotice } from '@/components/session-provider';
 import { Link } from '@/i18n/navigation';
 
 type State =
   | { kind: 'verifying' }
-  | { kind: 'success' }
+  | { kind: 'success'; grants: TokenGrantNotice[] }
   | { kind: 'expired' }
   | { kind: 'invalid'; message: string }
   | { kind: 'missing' };
@@ -34,8 +36,18 @@ function VerifyEmail() {
 
     void (async () => {
       try {
-        await api.post('/v1/auth/verify-email', { token }, { authenticated: false });
-        setState({ kind: 'success' });
+        /**
+         * Verification is where a signup promotion pays out, because campaigns require
+         * a confirmed address by default. The grant comes back on this response so the
+         * success screen can name it — the user has no other way to learn that the
+         * tokens exist or where they came from.
+         */
+        const result = await api.post<{ verified: boolean; grants?: TokenGrantNotice[] }>(
+          '/v1/auth/verify-email',
+          { token },
+          { authenticated: false },
+        );
+        setState({ kind: 'success', grants: result.grants ?? [] });
       } catch (error) {
         if (error instanceof ApiRequestError) {
           if (error.error.code === 'TOKEN_EXPIRED') setState({ kind: 'expired' });
@@ -81,6 +93,8 @@ function VerifyEmail() {
             {tCommon('signIn')}
           </Link>
         </div>
+
+        <GrantNotice grants={state.grants} />
       </AuthShell>
     );
   }

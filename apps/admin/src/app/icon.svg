@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Trip2World Admin">
+  <!--
+    The admin favicon is the same globe in a different colour, and that is the entire
+    point of it.
+
+    A moderator works with both tabs open — the public app and this panel — and the two
+    are one glance apart in the tab strip. Identical icons mean acting on the wrong one.
+    Amber is the strongest available signal at 16px: it does not appear anywhere in the
+    public app's palette, it survives being scaled down, and it reads as "staff surface,
+    pay attention" rather than as a second brand.
+
+    Deliberately not red. Red is reserved for destructive actions inside the panel, and
+    a permanently-red tab would make it meaningless there.
+  -->
+  <defs>
+    <linearGradient id="t2w-admin-favicon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="60%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#0a0f1c"/>
+
+  <g fill="none" stroke="url(#t2w-admin-favicon)" stroke-width="34" stroke-linecap="round">
+    <circle cx="256" cy="256" r="152"/>
+    <ellipse cx="256" cy="256" rx="66" ry="152"/>
+    <path d="M104 256h304"/>
+  </g>
+</svg>

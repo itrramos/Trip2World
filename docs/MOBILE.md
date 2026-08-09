@@ -89,7 +89,7 @@ The web app must be served over HTTPS — `getUserMedia` is unavailable otherwis
 Against the deployed instance:
 
 ```
-https://call.trip2fun.com
+https://trip2world.net
 ```
 
 Against a local dev server, use a tunnel rather than an IP:

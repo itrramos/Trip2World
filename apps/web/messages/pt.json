@@ -361,6 +361,12 @@
     }
   },
 
+  "grants": {
+    "title": "Recebeste {count, plural, one {# token grátis} other {# tokens grátis}}",
+    "viewBalance": "Ver o teu saldo",
+    "dismiss": "Fechar"
+  },
+
   "tips": {
     "dialogTitle": "Enviar uma gorjeta a {name}",
     "balanceLoading": "A carregar o saldo…",

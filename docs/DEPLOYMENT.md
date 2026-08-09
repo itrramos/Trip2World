@@ -1,6 +1,6 @@
 # Deploying Trip2World
 
-Written for the reference deployment: an Ubuntu VPS running CasaOS, with `trip2fun.com`
+Written for the reference deployment: an Ubuntu VPS running CasaOS, with `trip2world.net`
 on Cloudflare and an **existing** Cloudflare Tunnel providing ingress.
 
 ---
@@ -9,9 +9,9 @@ on Cloudflare and an **existing** Cloudflare Tunnel providing ingress.
 
 | Hostname | Reaches | Serves |
 | --- | --- | --- |
-| `call.trip2fun.com` | host port **8181** | Web app, HTTP API, realtime WebSocket |
-| `admin.trip2fun.com` | host port **8182** | Admin panel, HTTP API (same container) |
-| `turn.trip2fun.com` | UDP/TCP **3478** direct | coturn STUN/TURN. **Must bypass Cloudflare.** |
+| `trip2world.net` | host port **8181** | Web app, HTTP API, realtime WebSocket |
+| `admin.trip2world.net` | host port **8182** | Admin panel, HTTP API (same container) |
+| `turn.trip2world.net` | UDP/TCP **3478** direct | coturn STUN/TURN. **Must bypass Cloudflare.** |
 
 Nine containers behind one Caddy instance. Only Caddy (8181, 8182) and coturn are
 reachable from outside the Docker network; Postgres, Redis and every application
@@ -28,12 +28,13 @@ target depends on where `cloudflared` runs:
 
 | Public hostname | cloudflared on this host | cloudflared elsewhere |
 | --- | --- | --- |
-| `call.trip2fun.com` | `http://localhost:8181` | `http://<vps-public-ip>:8181` |
-| `admin.trip2fun.com` | `http://localhost:8182` | `http://<vps-public-ip>:8182` |
+| `trip2world.net` | `http://localhost:8181` | `http://<vps-public-ip>:8181` |
+| `admin.trip2world.net` | `http://localhost:8182` | `http://<vps-public-ip>:8182` |
 
-In the reference deployment cloudflared runs on a **different machine**, so the targets are
-the VPS public IP and `BIND_ADDRESS=0.0.0.0`. That combination means the ports are
-internet-facing — see the warning below.
+In the reference deployment cloudflared runs **on the VPS itself**, so the targets are
+`http://localhost:8181` / `:8182` and `BIND_ADDRESS` stays at `127.0.0.1`. That is the
+configuration to aim for: the tunnel becomes the only route in, and 8181/8182 can be
+closed at the firewall entirely.
 
 Cloudflare terminates TLS. Caddy speaks plain HTTP behind it and routes by **port**, not
 by `Host` header — so the admin panel cannot be reached by spoofing a `Host` header at
@@ -50,12 +51,12 @@ configuration, not a DNS value — pasting it into a CNAME's Target field is rej
 
 **`127.0.0.1` (default, recommended).** The tunnel becomes the only way in. Nobody can
 reach the app — or the admin panel — by hitting the VPS public IP directly, so
-Cloudflare, and any Access policy on `admin.trip2fun.com`, cannot be bypassed. Requires
+Cloudflare, and any Access policy on `admin.trip2world.net`, cannot be bypassed. Requires
 cloudflared to run on the same host, which is the normal setup. Point the tunnel at
 `http://localhost:8181` and `http://localhost:8182`.
 
-**`0.0.0.0`.** Required when cloudflared runs elsewhere, which is the case in the
-reference deployment.
+**`0.0.0.0`.** Required only when cloudflared runs elsewhere — another machine, or a
+container that cannot reach the host loopback.
 
 The ports are then internet-facing. `http://<vps-ip>:8182` serves the **moderation panel
 login** to anyone who port-scans that address — bypassing Cloudflare and any Access policy
@@ -71,9 +72,34 @@ sudo ufw allow from <TUNNEL_HOST_IP> to any port 8181 proto tcp comment 'Trip2Wo
 sudo ufw allow from <TUNNEL_HOST_IP> to any port 8182 proto tcp comment 'Trip2World admin'
 ```
 
-2. A **Cloudflare Access** policy in front of `admin.trip2fun.com` (Zero Trust →
+2. A **Cloudflare Access** policy in front of `admin.trip2world.net` (Zero Trust →
    Access → Applications). Free at this scale, and it puts an independent authentication
    layer ahead of the panel so a stolen moderator password is not sufficient on its own.
+
+### The firewall rule that must survive the lockdown
+
+Closing 8181 and 8182 once the tunnel is local is correct and worth doing. **TURN is a
+different matter, and closing its ports breaks calls silently.**
+
+TURN is UDP. It cannot go through a tunnel or through Cloudflare's proxy — both carry
+HTTP and WebSocket only. Its ports have to stay open inbound on the VPS:
+
+```bash
+sudo ufw allow 3478/udp
+sudo ufw allow 3478/tcp
+sudo ufw allow 49160:49200/udp
+sudo ufw status numbered
+```
+
+Without them, every user behind symmetric NAT — which is most mobile carriers — sits on
+"Connecting…" indefinitely. Nothing errors, no container is unhealthy, and the app reports
+itself fine, because from the server's point of view it is: the two peers simply never
+find a path to each other.
+
+Verify from **outside** the VPS, on a phone using mobile data rather than wifi. Open
+[icetest.info](https://icetest.info), enter `turn:<TURN_DOMAIN>:3478` with a credential
+from `GET /api/v1/ice/servers`, and confirm a candidate of type `relay` appears. A
+`srflx` candidate proves STUN works and proves nothing about TURN.
 
 If cloudflared runs as a container on the same host, either attach it to this stack's
 `edge` network (then target `http://caddy:8181`) or give it `network_mode: host` and keep
@@ -81,16 +107,16 @@ If cloudflared runs as a container on the same host, either attach it to this st
 
 ### Why the admin panel gets its own port
 
-An origin is the browser's security boundary. On `admin.trip2fun.com` the admin session
-cookie is never attached to a request made by code running on `call.trip2fun.com`, so a
+An origin is the browser's security boundary. On `admin.trip2world.net` the admin session
+cookie is never attached to a request made by code running on `trip2world.net`, so a
 cross-site scripting flaw in the public bundle cannot ride a moderator's session to ban
 accounts or read reports.
 
 That only holds if the admin UI authenticates **same-origin**, which is why Caddy serves
 `/api/*` on both ports, pointing at the same `api` container. Neither cookie is set with
-`Domain=.trip2fun.com`, which would hand it to every subdomain and undo the arrangement.
+`Domain=.trip2world.net`, which would hand it to every subdomain and undo the arrangement.
 
-Consider putting a Cloudflare Access policy in front of `admin.trip2fun.com`. It costs
+Consider putting a Cloudflare Access policy in front of `admin.trip2world.net`. It costs
 nothing at this scale and puts an independent authentication layer ahead of the panel.
 
 ---
@@ -250,16 +276,16 @@ docker compose exec realtime wget -qO- localhost:4001/health
 Then confirm the parts that fail silently:
 
 1. **End to end through the tunnel.**
-   `curl -s -o /dev/null -w '%{http_code}\n' https://call.trip2fun.com/api/v1/ice/servers`
+   `curl -s -o /dev/null -w '%{http_code}\n' https://trip2world.net/api/v1/ice/servers`
    should return **401** — proving DNS, the tunnel, Caddy routing and the API all work,
    and that the endpoint correctly refused an unauthenticated request. `530`/`1033` means
    the tunnel is not connected; `502` means cloudflared reached Caddy but Caddy could not
    reach the API.
 
-2. **Port isolation.** `curl -s -o /dev/null -w '%{http_code}\n' https://call.trip2fun.com/admin`
+2. **Port isolation.** `curl -s -o /dev/null -w '%{http_code}\n' https://trip2world.net/admin`
    should be **404**, not the admin panel. The admin app is only on 8182.
 
-3. **WebSocket upgrade.** Open `https://call.trip2fun.com`, devtools → Network → WS. You
+3. **WebSocket upgrade.** Open `https://trip2world.net`, devtools → Network → WS. You
    should see `/rt` connected, not a repeating long-poll. A failed upgrade still "works"
    via polling but adds a round trip to every signaling message.
 
@@ -319,6 +345,6 @@ backup on the same disk is not a backup.
 | Login succeeds then immediately logs out | `APP_URL` is `http://`, or `TRUST_PROXY=false`. Secure cookies are dropped without a trusted `https` scheme. |
 | Some users stuck on "connecting…" | TURN unreachable, proxied, or `TURN_EXTERNAL_IP` unset/wrong. |
 | Verification email never arrives | Account password used instead of an App Password, or `MAIL_FROM` does not match the Gmail account. |
-| Admin panel rejects a valid login | `CORS_ALLOWED_ORIGINS` missing `https://admin.trip2fun.com`. |
+| Admin panel rejects a valid login | `CORS_ALLOWED_ORIGINS` missing `https://admin.trip2world.net`. |
 | `Permission denied` running a script | `chmod +x infrastructure/scripts/*.sh` — the executable bit is not carried by upload. |
 | Postgres won't start, "invalid permissions" | Data directory ownership. Re-run `sudo ./infrastructure/scripts/setup-casaos.sh`. |

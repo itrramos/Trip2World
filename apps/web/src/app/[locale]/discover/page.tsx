@@ -25,6 +25,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 import { MEDIA_ERROR_RETRYABLE } from '@/lib/media';
+import { GrantNotice } from '@/components/grant-notice';
 import { useRequireAuth } from '@/components/session-provider';
 import { TipDialog, TipOfferPrompt, TipToast } from '@/components/tips';
 import { useConversation } from '@/hooks/use-conversation';
@@ -510,6 +511,13 @@ export default function DiscoverPage() {
           onSend={(tokens, options) => conversation.sendTip(tokens, options)}
         />
       )}
+
+      {/*
+        A promotion that paid out during sign-in. Positioned bottom-right, clear of the
+        control bar, and dismissed by hand rather than on a timer — this is the only
+        notice a user gets that their balance changed.
+      */}
+      <GrantNotice />
 
       {reportOpen && partner && (
         <ReportDialog

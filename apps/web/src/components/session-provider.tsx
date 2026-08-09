@@ -25,9 +25,26 @@ import { usePathname, useRouter } from '@/i18n/navigation';
 
 export type SessionStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
+/** A promotional grant that landed during this sign-in. */
+export interface TokenGrantNotice {
+  campaignId: string;
+  campaignName: string;
+  tokens: number;
+}
+
 interface SessionContextValue {
   status: SessionStatus;
   user: SelfProfile | null;
+  /**
+   * Promotions that paid out on the most recent sign-in.
+   *
+   * Held here rather than returned from `signIn`, because the sign-in happens on
+   * /login and the user is redirected away before anything could render. The next
+   * screen picks it up and acknowledges it. Silently increasing someone's balance is a
+   * missed moment and, worse, looks like a bug when they notice it later.
+   */
+  grants: TokenGrantNotice[];
+  dismissGrants: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   reload: () => Promise<void>;
@@ -38,6 +55,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [user, setUser] = useState<SelfProfile | null>(null);
+  const [grants, setGrants] = useState<TokenGrantNotice[]>([]);
   const router = useRouter();
 
   // Guards against a state update after unmount during the boot sequence.
@@ -96,14 +114,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const result = await api.post<{
         user: SelfProfile;
         tokens: { accessToken: string; expiresIn: number };
+        grants?: TokenGrantNotice[];
       }>('/v1/auth/login', { email, password }, { authenticated: false });
 
       setAccessToken(result.tokens.accessToken, result.tokens.expiresIn);
       setUser(result.user);
+      setGrants(result.grants ?? []);
       setStatus('authenticated');
     },
     [],
   );
+
+  const dismissGrants = useCallback(() => setGrants([]), []);
 
   const signOut = useCallback(async () => {
     try {
@@ -115,14 +137,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally {
       setAccessToken(null);
       setUser(null);
+      setGrants([]);
       setStatus('unauthenticated');
       router.push('/');
     }
   }, [router]);
 
   const value = useMemo<SessionContextValue>(
-    () => ({ status, user, signIn, signOut, reload: async () => void (await loadUser()) }),
-    [status, user, signIn, signOut, loadUser],
+    () => ({
+      status,
+      user,
+      grants,
+      dismissGrants,
+      signIn,
+      signOut,
+      reload: async () => void (await loadUser()),
+    }),
+    [status, user, grants, dismissGrants, signIn, signOut, loadUser],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

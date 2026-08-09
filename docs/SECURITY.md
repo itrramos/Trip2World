@@ -171,7 +171,17 @@ in the schema (`ACCOUNT`, `DEVICE`, `NETWORK`) but only `ACCOUNT` is implemented
   Only a signature-verified webhook credits.
 - The webhook route receives the **raw body**, because a re-serialised body produces a
   different signature and every legitimate event would be rejected.
+- **Promotional grants are once per user and capped atomically.** The unique index on
+  `(campaignId, userId)` is what prevents a double claim, and the cap is a conditional
+  `UPDATE … WHERE grantsIssued < maxGrants` — a read-then-compare would let every
+  concurrent signup pass the same limit.
 - Card details never touch this system.
+
+**The interaction to remember:** free signup tokens are safe today only because tokens
+cannot be withdrawn. Farmed accounts can tip tokens to one another and extract nothing.
+Enabling creator payouts would make promotional tokens redeemable for money and this
+feature a way to mint it. Payouts and unlimited promotions cannot both exist —
+`requiresVerifiedEmail` and `maxGrants` would become load-bearing rather than prudent.
 
 ---
 

@@ -20,6 +20,7 @@ import { iceRoutes } from './routes/ice.routes.js';
 import { profileRoutes } from './routes/profile.routes.js';
 import { safetyRoutes } from './routes/safety.routes.js';
 import { tokenRoutes } from './routes/tokens.routes.js';
+import { CampaignsService } from '@trip2world/database';
 import { AuthService } from './services/auth.service.js';
 import { createMailService, type MailService } from './services/mail.service.js';
 import { SettingsService } from './services/settings.service.js';
@@ -34,6 +35,7 @@ declare module 'fastify' {
       auth: AuthService;
       mail: MailService;
       settings: SettingsService;
+      campaigns: CampaignsService;
     };
   }
 }
@@ -81,8 +83,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const settings = new SettingsService({ prisma, redis, config });
   const mail = createMailService(config, logger);
   const auth = new AuthService({ prisma, config, logger });
+  const campaigns = new CampaignsService(prisma, logger);
 
-  app.decorate('services', { auth, mail, settings });
+  app.decorate('services', { auth, mail, settings, campaigns });
 
   /* ---------------------------------------------------------------- */
   /* Security middleware                                               */
