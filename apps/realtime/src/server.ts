@@ -759,11 +759,18 @@ export function buildRealtimeServer(deps: RealtimeServerDeps): RealtimeServer {
           });
 
           const sentAt = new Date().toISOString();
+
+          // Prefer the display name the partner is already seeing on screen. Using the
+          // raw username here would name a different person to the one in the header.
+          const senderRow = await loadMatchCandidate(userId, prisma).catch(() => null);
+          const senderName =
+            senderRow?.profile?.displayName?.trim() || socket.data.username;
+
           const base = {
             tipId: result.tipId,
             matchId: data.matchId,
             fromUserId: userId,
-            fromName: socket.data.username,
+            fromName: senderName,
             tokens: data.tokens,
             message: data.message ?? null,
             offeredSeconds: data.offeredSeconds ?? null,
