@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { LegalPage, ReviewNotice } from '@/components/legal-page';
+import { LegalPage } from '@/components/legal-page';
 
 export const metadata: Metadata = { title: 'Community Guidelines' };
 
@@ -10,7 +10,6 @@ export default function GuidelinesPage() {
       updated="August 2026"
       summary="Trip2World only works if talking to a stranger feels safe. These rules are short, and they are enforced — by real people reviewing real reports."
     >
-      <ReviewNotice />
 
       <section>
         <h2>The rules</h2>

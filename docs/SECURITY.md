@@ -241,7 +241,7 @@ Stated plainly rather than left implicit:
 | Peer IP visible via ICE | Inherent to P2P. `relay`-only mode available at a cost |
 | No 2FA | Not implemented. Worth adding for moderator and admin accounts first |
 | No automated content moderation | Reports are human-reviewed only |
-| Legal documents unreviewed | Templates describing actual behaviour; need a lawyer before launch |
+| Legal documents are deployment-specific | Reviewed by an attorney for this operator. A fork or another jurisdiction needs its own review |
 | No breach-corpus password check | Only a small common-password denylist |
 | Admin ports internet-facing | Depends on deployment. Restrict to the tunnel host and add Cloudflare Access |
 

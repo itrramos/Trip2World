@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { LegalPage, ReviewNotice } from '@/components/legal-page';
+import { LegalPage } from '@/components/legal-page';
 
 export const metadata: Metadata = { title: 'Privacy' };
 
@@ -19,7 +19,6 @@ export default function PrivacyPage() {
       updated="August 2026"
       summary="Your conversations are never recorded. We store the minimum needed to run the service and to act on abuse reports — and country-level location is the most precise location data that exists anywhere in this system."
     >
-      <ReviewNotice />
 
       <section>
         <h2>What we collect</h2>

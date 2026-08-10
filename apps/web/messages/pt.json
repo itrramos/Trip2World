@@ -426,9 +426,7 @@
     "lastUpdated": "Última atualização: {date}",
     "questions": "Dúvidas sobre este documento? Contacta quem gere esta instalação do Trip2World.",
     "englishOnlyTitle": "Este documento só está disponível em inglês.",
-    "englishOnlyBody": "Os textos legais não são traduzidos automaticamente aqui. Uns Termos de Serviço ou uma Política de Privacidade mal traduzidos são piores do que ter de os ler numa segunda língua, porque podem não dizer o que parecem dizer — e é a versão inglesa que prevalece. O resto do Trip2World está no teu idioma.",
-    "reviewNoticeTitle": "Nota para quem gere o serviço — remover antes do lançamento.",
-    "reviewNoticeBody": "Este documento descreve o comportamento real do software, mas não foi revisto por um advogado e não constitui aconselhamento jurídico. Manda revê-lo à luz da lei do local onde operas e onde estão os teus utilizadores, em especial o RGPD se serves a UE/Reino Unido."
+    "englishOnlyBody": "Os textos legais não são traduzidos automaticamente aqui. Uns Termos de Serviço ou uma Política de Privacidade mal traduzidos são piores do que ter de os ler numa segunda língua, porque podem não dizer o que parecem dizer — e é a versão inglesa que prevalece. O resto do Trip2World está no teu idioma."
   },
 
   "auth": {

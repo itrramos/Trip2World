@@ -420,9 +420,7 @@
     "lastUpdated": "Last updated {date}",
     "questions": "Questions about this document? Contact the operator of this Trip2World deployment.",
     "englishOnlyTitle": "This document is only available in English.",
-    "englishOnlyBody": "Legal text is not machine-translated here. A mistranslated Terms of Service or Privacy Policy is worse than one you have to read in a second language, because it may not say what it appears to say — and it is the English version that governs. The rest of Trip2World is in your language.",
-    "reviewNoticeTitle": "Operator note — remove before launch.",
-    "reviewNoticeBody": "This document describes how this software actually behaves, but it has not been reviewed by a lawyer and is not legal advice. Have it reviewed against the law where you operate and where your users are, particularly GDPR if you serve the EU/UK."
+    "englishOnlyBody": "Legal text is not machine-translated here. A mistranslated Terms of Service or Privacy Policy is worse than one you have to read in a second language, because it may not say what it appears to say — and it is the English version that governs. The rest of Trip2World is in your language."
   },
 
   "auth": {

@@ -238,6 +238,12 @@ but are untranslated. See [I18N](docs/I18N.md).
 
 Not built: native mobile apps, OAuth sign-in, connections/friends, creator payouts.
 
-The legal pages in `apps/web/src/app/{terms,privacy,guidelines,safety}` accurately describe
-how the software behaves but **have not been reviewed by a lawyer**. Each carries a visible
-notice to that effect. Have them reviewed before launch.
+The legal pages in `apps/web/src/app/[locale]/{terms,privacy,guidelines,safety}` describe
+how the software actually behaves, and have been reviewed by an attorney for **this**
+deployment.
+
+That review does not transfer. It covers this operator, in their jurisdiction, running
+this configuration — not a fork, not a different country, and not a deployment that has
+changed how data is handled. Anyone redeploying this codebase needs their own review, and
+should treat these documents as an accurate description of the software rather than as
+advice.

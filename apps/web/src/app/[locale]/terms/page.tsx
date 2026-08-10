@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { LegalPage, ReviewNotice } from '@/components/legal-page';
+import { LegalPage } from '@/components/legal-page';
 
 export const metadata: Metadata = { title: 'Terms of Service' };
 
@@ -11,7 +11,6 @@ export default function TermsPage() {
       updated="August 2026"
       summary="The agreement between you and the operator of this Trip2World deployment. In short: you must be 18 or over, follow the Community Guidelines, and understand that tokens are a digital product that cannot be cashed out."
     >
-      <ReviewNotice />
 
       <section>
         <h2>1. Who can use Trip2World</h2>

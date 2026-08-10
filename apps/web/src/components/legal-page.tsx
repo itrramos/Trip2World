@@ -103,19 +103,13 @@ export async function LegalPage({
   );
 }
 
-/**
- * Banner marking these documents as un-reviewed templates.
+/*
+ * `ReviewNotice` used to live here — a banner warning that these documents were drafted
+ * against the software's actual behaviour but had not been seen by a lawyer. The
+ * operator has since had them reviewed by an attorney, so the warning is no longer true
+ * and has been removed along with its message keys.
  *
- * They accurately describe what this software does — written against the actual data
- * handling — but they are not legal advice and have not been reviewed by a lawyer.
- * Publishing them unchanged and unreviewed would be a mistake, so the page says so
- * rather than letting an operator assume otherwise.
+ * If this codebase is ever redeployed by somebody else, that review does not travel with
+ * it: the documents describe how the software behaves, not the law where the new
+ * operator is. See README.
  */
-export async function ReviewNotice() {
-  const t = await getTranslations('legal');
-  return (
-    <div className="rounded-sm border border-warning/40 bg-warning/10 p-4 text-xs text-warning">
-      <strong className="font-semibold">{t('reviewNoticeTitle')}</strong> {t('reviewNoticeBody')}
-    </div>
-  );
-}
